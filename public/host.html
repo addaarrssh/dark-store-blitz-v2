@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>Dark Store Blitz - Organiser</title>
+<link rel="stylesheet" href="/kit.css">
+<link rel="stylesheet" href="/host.css">
+</head>
+<body class="hostpage">
+
+<!-- 1. organiser PIN -->
+<form id="login" class="login" autocomplete="off" novalidate hidden>
+  <h1 class="logo">Dark Store Blitz</h1>
+  <p>Organiser screen. Type the organiser PIN.</p>
+  <p id="loginNote" class="alert" hidden></p>
+  <label class="field">Organiser PIN
+    <input id="hp" name="hp" inputmode="numeric" autocomplete="off" maxlength="12">
+  </label>
+  <button class="btn wide" id="loginBtn" type="submit">Open organiser screen</button>
+</form>
+
+<!-- 2. waiting for the first answer -->
+<div id="wait" class="wait" hidden>Connecting…</div>
+
+<!-- 3. the organiser screen: stage (for the hall) + dock (for the organiser) -->
+<div id="app" hidden>
+  <header class="htop">
+    <span class="hlogo">Dark Store Blitz</span>
+    <span id="phaseName" class="phase-name"></span>
+    <span id="flags" class="flags"></span>
+    <span class="grow"></span>
+    <span id="counts" class="counts"></span>
+    <span class="connbox" id="connBox" title="Connection to the game laptop"><span class="conn" id="conn"></span><span id="connTxt">connecting</span></span>
+  </header>
+  <div id="lost" class="lost" role="alert" hidden></div>
+  <div id="msgbar" class="msgbar" hidden></div>
+  <div id="pausebar" class="pausebar" hidden>⏸ CLOCK PAUSED <small>Nobody is losing time. Press Resume (or Space) when the room is ready.</small></div>
+
+  <main id="stage">
+
+    <!-- LOBBY -->
+    <section id="s-lobby" class="stg stg-lobby" hidden>
+      <div class="col">
+        <p class="lead">Join on your phone</p>
+        <div class="url" id="joinUrl"></div>
+        <p class="alt" id="joinAlt"></p>
+        <ol class="steps">
+          <li id="step1">Connect your phone to the same Wi-Fi as this screen.</li>
+          <li>Open the address above in your browser.</li>
+          <li>Type a team name and any 4-digit PIN. Teammates join with the same name and PIN.</li>
+        </ol>
+      </div>
+      <div class="col">
+        <div class="bigcount"><b id="lobbyN" class="giant">0</b><span id="lobbyNLabel">teams in</span></div>
+        <p id="joinState" class="joinstate"></p>
+        <div id="lobbyNames" class="chips"></div>
+      </div>
+    </section>
+
+    <!-- ROUND 1: LAYOUT -->
+    <section id="s-layout" class="stg stg-layout" hidden>
+      <div class="col">
+        <p class="lead">Round 1 · Build your store</p>
+        <div id="layTimer" class="bigtimer" aria-label="time left"></div>
+        <p id="layNote" class="tnote"></p>
+        <div class="prog">
+          <p class="prog-txt" id="layProgTxt"></p>
+          <div class="distbar" id="layDist"></div>
+          <p class="distkey"><span><i class="d3"></i>all 24 placed</span><span><i class="d2"></i>12 to 23</span><span><i class="d1"></i>1 to 11</span><span><i class="d0"></i>not started</span></p>
+        </div>
+      </div>
+      <div class="col" id="laySide"></div>
+    </section>
+
+    <!-- LAYOUTS LOCKED -->
+    <section id="s-locked" class="stg stg-locked" hidden>
+      <div class="col">
+        <p class="lead">Layouts are locked</p>
+        <h2 class="mega">Layout check</h2>
+        <div class="statrow two" id="lockStats"></div>
+        <p class="tnote" id="lockNote"></p>
+      </div>
+      <div class="col">
+        <h3 class="sub">Most common mistakes</h3>
+        <div id="lockMistakes" class="mistakes"></div>
+      </div>
+    </section>
+
+    <!-- AN ORDER IS RUNNING -->
+    <section id="s-order" class="stg stg-order" hidden>
+      <div class="col">
+        <div id="crisis" class="crisis" hidden></div>
+        <div class="ordrow">
+          <div id="ticket" class="tix"></div>
+          <div id="ordMapBox" class="ordmap" hidden><div id="ordMap"></div><p class="mapcap" id="ordMapCap"></p></div>
+        </div>
+      </div>
+      <div class="col">
+        <div id="ordTimer" class="bigtimer" aria-label="time left"></div>
+        <p id="ordNote" class="tnote"></p>
+        <div class="prog">
+          <p class="prog-txt" id="ordProgTxt"></p>
+          <div class="pbar"><i id="ordBar"></i></div>
+        </div>
+        <ul id="ticker" class="ticker"></ul>
+      </div>
+    </section>
+
+    <!-- RESULTS OF AN ORDER -->
+    <section id="s-reveal" class="stg stg-reveal" hidden>
+      <div class="col">
+        <p class="lead" id="revTitle"></p>
+        <div id="spotCap" class="spotcap"></div>
+        <div id="spotMap" class="spotmap"></div>
+      </div>
+      <div class="col">
+        <div class="statrow three" id="revStats"></div>
+        <h3 class="sub">Top 10 <small id="revBoardNote"></small></h3>
+        <ol id="revBoard" class="board hboard"></ol>
+      </div>
+    </section>
+
+    <!-- FINAL -->
+    <section id="s-final" class="stg stg-final" hidden>
+      <div class="col">
+        <p class="lead">Final results</p>
+        <div id="podium" class="podium"></div>
+      </div>
+      <div class="col">
+        <h3 class="sub" id="finHead">Full ranking</h3>
+        <div id="finList" class="finlist"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="dock" class="dock">
+    <div id="dockMain" class="dock-main"></div>
+    <div class="dock-side">
+      <button type="button" class="dk dk-quiet" data-act="mute" id="muteBtn" title="Switch the sounds of this screen on or off">🔊 Sound on</button>
+      <button type="button" class="dk dk-quiet" data-act="fs" title="Fill the whole screen (for the projector). Press again to leave.">⛶ Full screen <kbd>F</kbd></button>
+      <button type="button" class="dk dk-room" data-act="drawer" title="Open the control room: jump to a round, teams, messages, settings">☰ Control room</button>
+    </div>
+  </footer>
+
+  <!-- CONTROL ROOM -->
+  <div id="drawerScrim" class="drawer-scrim" data-act="drawer" hidden></div>
+  <aside id="drawer" class="drawer" aria-label="Control room" hidden>
+    <div class="dr-head">
+      <h2>Control room</h2>
+      <button type="button" class="btn2 small" data-act="help" title="A list of every control in plain words">? Controls help</button>
+      <button type="button" class="x" data-act="drawer" aria-label="Close the control room">✕</button>
+    </div>
+    <div class="dr-body">
+      <section class="dr-sec">
+        <h3>Jump to a round</h3>
+        <p class="dr-tip">Pink = running now. White = already played. You are asked before anything starts.</p>
+        <div id="drRounds" class="dr-rounds"></div>
+      </section>
+
+      <section class="dr-sec">
+        <h3>Settings</h3>
+        <div id="drSwitches" class="dr-switches"></div>
+      </section>
+
+      <section class="dr-sec">
+        <h3>Message to every phone</h3>
+        <form id="msgForm" class="dr-msg" autocomplete="off">
+          <input id="msgText" maxlength="140" placeholder="For example: 5 minute break, back at 3:15">
+          <button class="btn small" type="submit" title="Show this message on every player's phone and on this screen">Send</button>
+          <button class="btn2 small" type="button" data-act="msgclear" id="msgClear" title="Take the message off every screen">Clear</button>
+        </form>
+        <p class="dr-tip" id="msgNow"></p>
+      </section>
+
+      <section class="dr-sec">
+        <h3>Teams <small id="tCount"></small></h3>
+        <div class="dr-tools">
+          <input id="tSearch" type="search" placeholder="Search a team name" autocomplete="off">
+          <label>Sort by
+            <select id="tSort">
+              <option value="rank">Rank (points)</option>
+              <option value="name">Name</option>
+              <option value="placed">Products placed (fewest first)</option>
+              <option value="devices">Phones (fewest first)</option>
+              <option value="pen">Penalties (most first)</option>
+              <option value="round">This round (not handed in first)</option>
+            </select>
+          </label>
+        </div>
+        <div class="dr-tablebox">
+          <table class="ttable">
+            <thead><tr><th>#</th><th>Team</th><th title="Phones connected right now">📱</th><th title="Products placed, out of 24">Placed</th><th>Points</th><th title="Layout penalty points">Penalty</th><th>This round</th><th></th></tr></thead>
+            <tbody id="tBody"></tbody>
+          </table>
+        </div>
+        <p class="dr-tip">Click a team to see its penalty reasons and point adjustments.</p>
+      </section>
+
+      <section class="dr-sec">
+        <h3>Safety</h3>
+        <div id="drSafety"></div>
+        <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+      </section>
+
+      <section class="dr-sec dr-danger">
+        <h3>Danger zone</h3>
+        <button type="button" class="btn2 small" data-act="reset" title="Wipe every team, layout and score and go back to an empty lobby. You are asked twice.">🗑 Reset the whole game…</button>
+        <button type="button" class="btn2 small" data-act="signout" title="Forget the organiser PIN on this browser only. The game keeps running.">Sign out of this screen</button>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<!-- confirm / input box (filled by host.js) -->
+<div id="dlg" hidden></div>
+
+<!-- rules sheet for the projector: lobby only, filled by host.js -->
+<div id="rules" hidden>
+  <div class="scrim" data-act="rules"></div>
+  <div class="rsheet" role="dialog" aria-label="Rules">
+    <div class="rhead"><h2>How to play</h2><span class="rhint">Only on this screen, only before Round 1. Phones do not show hints while you play.</span><button type="button" class="x" data-act="rules" aria-label="Close the rules">✕</button></div>
+    <div class="rbody" id="rulesBody"></div>
+  </div>
+</div>
+
+<!-- controls help -->
+<div id="help" hidden>
+  <div class="scrim" data-act="help"></div>
+  <div class="hdlg hdlg-wide" role="dialog" aria-label="Controls help">
+    <div class="hdlg-head"><h2>Controls help</h2><button type="button" class="x" data-act="help" aria-label="Close">✕</button></div>
+    <div class="hdlg-body help-cols">
+      <div>
+        <h3>Keyboard</h3>
+        <ul>
+          <li><kbd>Space</kbd> Pause or resume the clock.</li>
+          <li><kbd>N</kbd> Next step: the yellow button in the bottom bar. You are always asked first.</li>
+          <li><kbd>Enter</kbd> Yes in a question box. <kbd>Esc</kbd> is no. Pressing <kbd>N</kbd> again does nothing.</li>
+          <li><kbd>R</kbd> Show or hide the rules sheet (lobby only).</li>
+          <li><kbd>F</kbd> Full screen on or off.</li>
+          <li><kbd>Esc</kbd> Close a box or the control room.</li>
+        </ul>
+        <h3>Bottom bar</h3>
+        <ul>
+          <li><b>Start Round 1</b> Opens the warehouse on every phone and starts the clock. Pick the length first. You are asked first.</li>
+          <li><b>Show rules</b> Lobby only. Puts the placement rules, the penalty points and the scoring on this screen so you can explain them. It closes by itself when Round 1 starts. During the game neither this screen nor the phones show the placement rules.</li>
+          <li><b>Lock joining / Open joining</b> Stops (or allows) new teams. Phones of teams already in can always come back.</li>
+          <li><b>+1 min, −1 min, +30 s</b> Add or remove time on the running clock. You are asked first if −1 min would end the round.</li>
+          <li><b>Pause clock / Resume clock</b> Freezes the clock for everybody. Teams can still work and hand in.</li>
+          <li><b>Show sales per hour</b> Shows how often each product is sold, here and on the phones.</li>
+          <li><b>Lock layouts now</b> Ends Round 1 early. Mistakes in the layouts are counted now.</li>
+          <li><b>Reopen layouts for 5 min</b> Only before the first order. Lets teams fix their store.</li>
+          <li><b>Start order / Next</b> Sends the next order to every phone and starts its clock. You are asked first ("Start Order 4?"), so a slip on the key or a double click cannot skip ahead.</li>
+          <li><b>End order now</b> Closes the order early. Teams that did not hand in get 0 for it.</li>
+          <li><b>Replay best run</b> Shows the best route of the round again on the map.</li>
+          <li><b>Final results</b> Ends the game and opens the podium. You are asked first. Reveal 3rd, 2nd and 1st one by one (asked each time). Phones show each place at the same moment, not before.</li>
+          <li><b>Download results (CSV)</b> Saves the final table as a file you can open in Excel.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Control room</h3>
+        <ul>
+          <li><b>Jump to a round</b> Start any round. If it was played before you are asked whether to wipe its old scores and play it again.</li>
+          <li><b>Clock on / off</b> With the clock off, rounds only end when you end them. Switching it back on restarts the clock of the running round.</li>
+          <li><b>Practice mode</b> Practice only: teams can retry an order as often as they like. Keep it OFF in the competition.</li>
+          <li><b>Message to every phone</b> A short line shown on all phones and on this screen. Clear takes it away.</li>
+          <li><b>± Points</b> Add or take away points for one team, with a reason the team can see.</li>
+          <li><b>Redo</b> Deletes one team's result for the current order so it can hand in again (for disputes).</li>
+          <li><b>New PIN</b> For a team that forgot its PIN: type 4 new digits for them. Their connected phones stay in.</li>
+          <li><b>Remove</b> Takes a team out of the game for good.</li>
+          <li><b>⚠ too fast</b> Shown next to a result that came in faster than a person can tap. It got no speed bonus.</li>
+          <li><b>Reset the whole game</b> Wipes all teams and scores. You must type RESET.</li>
+        </ul>
+        <h3>Good to know</h3>
+        <ul>
+          <li>If the game laptop restarts in the middle of a round, the clock comes back <b>paused</b>. Press Resume.</li>
+          <li>The dot at the top right is green when this screen is live. If it turns pink, the screen keeps the last state and reconnects by itself.</li>
+          <li>Sounds need one click or key press on this page first.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/game.js"></script>
+<script src="/kit.js"></script>
+<script src="/kit3d.js"></script>
+<script src="/host.js"></script>
+</body>
+</html>

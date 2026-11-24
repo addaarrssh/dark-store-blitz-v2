@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Dark Store Blitz</title>
+<link rel="stylesheet" href="/kit.css">
+<link rel="stylesheet" href="/player.css">
+</head>
+<body>
+
+<!-- 1. join form (shown when this phone has no team yet) -->
+<form id="join" class="join" autocomplete="off" novalidate hidden>
+  <h1 class="logo">Dark Store Blitz</h1>
+  <p>Deliver in 10 minutes. Walk as little as you can.</p>
+  <p id="joinNote" class="alert" hidden></p>
+  <label class="field">Team name
+    <input id="jName" name="tname" maxlength="24" autocomplete="off" autocapitalize="words" spellcheck="false">
+  </label>
+  <label class="field">Team PIN: any 4 digits. Share it with your teammates.
+    <input id="jPin" name="tpin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off">
+  </label>
+  <button class="btn wide" id="jBtn" type="submit">Join the game</button>
+  <p class="tip">Teammates join on their own phones with the same team name and the same PIN.</p>
+</form>
+
+<!-- 2. waiting for the first answer from the server -->
+<div id="wait" class="wait" hidden>Connecting…</div>
+
+<!-- 3. the game -->
+<div id="app" hidden>
+  <div id="hdr">
+    <header class="top">
+      <span class="conn" id="conn" role="img" aria-label="connecting"></span>
+      <span class="who" id="who"></span>
+      <span class="sc" id="sc" hidden></span>
+      <button class="q" id="qBtn" type="button" data-act="rules">Help</button>
+      <span class="pz" id="pz" hidden>PAUSED</span>
+      <span class="tm" id="tm" aria-label="time left"></span>
+    </header>
+    <div id="strip" class="strip" role="status" hidden></div>
+    <button id="msg" class="msgbar" type="button" data-act="msghide" hidden></button>
+  </div>
+
+  <main class="pl">
+    <div id="rCrisis" class="rg"></div>
+    <div id="rHead" class="rg"></div>
+
+    <div id="lobby" hidden>
+      <div class="card howto">
+        <h2>How to play</h2>
+        <div class="howrow">
+          <div id="demoBox" class="demo" aria-hidden="true"></div>
+          <ol class="howsteps">
+            <li><b>Stock your store.</b> Your team decides which shelf each of the 24 products sits on.</li>
+            <li><b>Walk the order.</b> Tap the map to walk from START, stand next to each item to grab it, then walk back to START.</li>
+            <li><b>Hand in.</b> Fewer steps means more points. Be quick: the first teams get a bonus.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card" id="lobbyRules"></div>
+    </div>
+
+    <div id="mapWrap" hidden>
+      <div id="map3dBox" hidden></div>
+      <div id="mapBox"></div>
+      <div id="rCap" class="rg"></div>
+      <div id="legend"></div>
+    </div>
+
+    <div id="rFoot" class="rg"></div>
+
+    <div id="boardWrap" hidden>
+      <h3>Leaderboard</h3>
+      <ol class="board" id="board"></ol>
+      <p id="boardNote" class="tip" hidden>The top places are revealed on the big screen, one by one.</p>
+      <p id="boardMe" class="boardme" hidden></p>
+    </div>
+  </main>
+
+  <div id="bar" class="bar" hidden>
+    <!-- Clear sits on the far left, away from Hand in. (After a Clear, Undo brings the route back.) -->
+    <button class="btn2 clr" type="button" id="bClear" data-act="clear">Clear</button>
+    <div class="mt"><b id="mtNum">0 m</b><small id="mtSub"></small></div>
+    <button class="btn2" type="button" id="bUndo" data-act="undo">Undo</button>
+    <button class="btn" type="button" id="bHand" data-act="submit">Hand in</button>
+  </div>
+</div>
+
+<div id="sheetHost"></div>
+
+<noscript><p class="wait">This game needs JavaScript. Please switch it on.</p></noscript>
+<script src="/game.js"></script>
+<script src="/kit.js"></script>
+<script src="/kit3d.js"></script>
+<script src="/player.js"></script>
+</body>
+</html>

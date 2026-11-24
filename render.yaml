@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: dark-store-blitz-v2
+    env: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: TEAMS_PER_ADDRESS
+        value: "0"
+      # Secrets: set both in the Render dashboard (Environment), never here. Make the values with: node tools/secret-orders.js
+      - key: HOST_PIN
+        sync: false
+      - key: ROUNDS_B64
+        sync: false

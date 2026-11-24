@@ -1,0 +1,221 @@
+/* DARK STORE BLITZ - kit.css : the shared look (yellow tape, black ink, pink rush) for both screens.
+   No external fonts, no images, no network. Classes are listed in the API block at the top of kit.js. */
+
+/* ---------- tokens + base ---------- */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--tape:#FFE500;--ink:#000;--rush:#FF2D87;--frz:#2B4BFF;--ice:#BFE0FF;--chem:#FF9A2E;--chemlite:#FFD9A8;--floor:#E8E6DA;--go:#00A859;--trail:#C5CEFF;
+--disp:"Avenir Next Condensed","HelveticaNeue-CondensedBlack","Roboto Condensed",sans-serif-condensed,"Arial Narrow",Impact,sans-serif;
+--body:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--mono:ui-monospace,Menlo,Consolas,"Roboto Mono",monospace}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--tape);color:var(--ink);font:16px/1.4 var(--body);min-height:100vh;touch-action:manipulation;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit;border-radius:0}
+button{cursor:pointer;border:0;background:none;touch-action:manipulation}
+button:disabled{opacity:.35;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--frz);outline-offset:2px}
+h1,h2,h3{font-family:var(--disp);font-weight:800;line-height:.95;letter-spacing:-.01em}
+h3{font-size:22px}
+[hidden]{display:none!important}
+
+/* ---------- words ---------- */
+.logo{font:800 76px/.8 var(--disp);text-transform:uppercase;letter-spacing:-.03em;word-spacing:100vw}
+.wait{padding:40vh 20px 0;text-align:center;font:800 28px var(--disp)}
+.kick{font:800 28px/1 var(--disp)}
+.tip{font-size:14px}
+.num{font:800 64px/.9 var(--disp);font-variant-numeric:tabular-nums}
+.off{background:var(--rush);color:#000;padding:2px 6px}
+.hurry{color:var(--rush)!important}
+.link{text-decoration:underline;font-weight:600;padding:6px 0}
+
+/* ---------- buttons ---------- */
+.btn,.btn2{display:inline-block;font:800 20px/1 var(--disp);padding:15px 18px;border:3px solid var(--ink);text-align:center;text-decoration:none;transition:transform .06s,box-shadow .06s;user-select:none;-webkit-user-select:none}
+.btn{background:var(--ink);color:var(--tape);box-shadow:4px 4px 0 var(--rush)}
+.btn2{background:#fff;color:var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.btn:active,.btn2:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn:disabled:active,.btn2:disabled:active{transform:none}
+.btn.small,.btn2.small{font-size:16px;padding:9px 12px;border-width:2px;box-shadow:3px 3px 0 var(--ink)}
+.btn.small{box-shadow:3px 3px 0 var(--rush)}
+.btn.wide,.btn2.wide{display:block;width:100%}
+.btn.hot{background:var(--rush);color:#000;box-shadow:4px 4px 0 var(--ink)}
+
+/* ---------- form field ---------- */
+.field{display:grid;gap:6px;font-weight:600}
+.field input,.field select,.field textarea{border:3px solid var(--ink);background:#fff;padding:14px;font-size:20px;width:100%}
+
+/* ---------- cards ---------- */
+.card{background:#fff;border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:16px}
+.card>*+*{margin-top:8px}
+.card h2{font-size:30px}
+.card.dark{background:var(--ink);color:#fff}
+.card.dark h2{color:var(--tape)}
+.warn{background:var(--rush)}
+.alert{background:var(--rush);font-weight:700;padding:10px 12px;border:3px solid var(--ink)}
+.tag{display:none !important}
+.t-cold{background:var(--ice)}.t-chemical{background:var(--chem)}.t-fragile{background:#fff}.t-heavy{background:#ddd}
+.pill{display:inline-block;border:1.5px solid currentColor;padding:2px 8px;font-size:13px;font-weight:700;white-space:nowrap}
+.pill.done{background:#fff;color:#000;border-color:#fff}
+.pill.cur{background:var(--rush);color:#000;border-color:var(--rush)}
+
+/* ---------- top bar + bottom bar ---------- */
+.top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:10px;background:var(--ink);color:#fff;padding:8px 12px;font:800 18px/1 var(--disp)}
+.top .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:36vw}
+.top .sc{color:var(--tape);white-space:nowrap}
+.top .q{margin-left:auto;border:2px solid #fff;padding:5px 9px;font-size:15px;color:#fff}
+.top .tm{font-size:30px;color:var(--tape);font-variant-numeric:tabular-nums;min-width:2.3em;text-align:right}
+.top .tm.hurry{animation:kit-beat .5s infinite alternate}
+.top .tm.paused{opacity:.6}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.bar .btn2{padding:12px;font-size:17px;box-shadow:none;color:#000}
+.bar .btn{background:var(--tape);color:var(--ink);box-shadow:none;padding:12px 16px}
+
+/* connection light: <span class="conn live"></span> */
+.conn{display:inline-block;width:10px;height:10px;border-radius:50%;background:#888;border:1.5px solid #fff;flex:none}
+.conn.live{background:var(--go)}
+.conn.polling{background:var(--tape)}
+.conn.offline{background:var(--rush);animation:kit-beat .5s infinite alternate}
+
+/* ---------- sheet (slides up from the bottom) ---------- */
+.scrim{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.66);z-index:20;animation:kit-fade .18s both}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:86vh;display:flex;flex-direction:column;background:var(--tape);border-top:4px solid var(--ink);max-width:640px;margin:0 auto;animation:kit-sheet .22s cubic-bezier(.2,.8,.2,1) both}
+.sheet-head{display:flex;align-items:baseline;gap:10px;padding:12px 14px 6px}
+.sheet-head h2{font-size:34px}
+.x{margin-left:auto;font-size:20px;padding:4px 10px;border:3px solid var(--ink);background:#fff}
+.sheet-body{overflow:auto;padding:6px 14px 14px;-webkit-overflow-scrolling:touch}
+.sheet-foot{padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:3px solid var(--ink);background:#fff}
+
+/* ---------- toast ---------- */
+/* left+right+auto margins centre it and let it use the whole width (left:50% would squeeze it into half the screen) */
+.toast{position:fixed;left:5vw;right:5vw;top:14px;margin:0 auto;width:-moz-fit-content;width:fit-content;max-width:90vw;transform:translateY(-400%);background:var(--ink);color:#fff;padding:10px 16px;border:2px solid #fff;font-weight:600;z-index:50;transition:transform .2s;text-align:center;pointer-events:none}
+.toast.show{transform:translateY(0)}
+.toast-bad{background:var(--rush);color:#000;border-color:var(--ink)}
+.toast-ok{background:var(--go);color:#000;border-color:var(--ink)}
+
+/* ---------- leaderboard ---------- */
+.board{list-style:none;counter-reset:r;background:#fff;border:3px solid var(--ink)}
+.board li{counter-increment:r;display:flex;gap:10px;align-items:baseline;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,.13);background:#fff;position:relative}
+.board li::before{content:counter(r);font:800 20px var(--disp);width:26px;flex:none}
+.board li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board li b{font:800 22px var(--disp);font-variant-numeric:tabular-nums}
+.board .you{background:var(--ink);color:var(--tape)}
+.flip-up{z-index:2;box-shadow:0 0 0 3px var(--rush)}
+.flip-in{animation:kit-rise .4s cubic-bezier(.2,.8,.2,1) both}
+
+/* ---------- order ticket ---------- */
+.bill{background:#fff;font-family:var(--mono);padding:14px 14px 12px;position:relative}
+.bill::after{content:"";position:absolute;left:0;right:0;top:100%;height:7px;background:radial-gradient(circle at 7px 0,#fff 6px,transparent 6.5px) 0 0/14px 7px repeat-x}
+.bill h2{font:800 30px/1 var(--disp)}
+.bill ul{list-style:none;margin-top:8px;border-top:2px dashed var(--ink)}
+.bill li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(0,0,0,.33);font-size:15px}
+.bill li.ok{text-decoration:line-through;opacity:.5}
+.bill li.miss span:last-child{background:var(--rush);padding:0 4px}
+
+/* ---------- legend ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border:1.5px solid var(--ink);display:inline-block}
+.lg-walk{background:var(--floor)}.lg-shelf{background:#fff}.lg-cold{background:var(--ice)}.lg-chem{background:var(--chemlite)}
+.lg-closed{background:repeating-linear-gradient(45deg,#000 0,#000 3px,#444 3px,#444 6px)}
+
+/* =====================================================================
+   THE WAREHOUSE MAP  (built by Kit.createMap; --u = width of one square)
+   ===================================================================== */
+.map{--u:32px;display:grid;grid-template-columns:14px minmax(0,1fr);grid-template-columns:max(14px,calc(var(--u)*.4)) minmax(0,1fr);grid-template-rows:14px auto;grid-template-rows:max(14px,calc(var(--u)*.4)) auto;font:700 11px/1 var(--body);font-size:max(11px,calc(var(--u)*.26));width:100%;padding:0 5px 5px 0}
+.map-cols{grid-column:2;grid-row:1;display:grid;grid-template-columns:repeat(10,1fr);text-align:center;padding:0 3px}
+.map-rows{grid-column:1;grid-row:2;display:grid;grid-template-rows:repeat(10,1fr);align-items:center;padding:3px 0}
+.map-sq{grid-column:2;grid-row:2;position:relative;height:0;margin:3px;padding-top:calc(100% - 6px);box-shadow:0 0 0 3px var(--ink),5px 5px 0 3px var(--ink);background:var(--ink)}
+.map-grid{position:absolute;top:0;left:0;width:100%;height:100%;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(10,minmax(0,1fr));font-size:calc(var(--u)*.3)}
+
+.map-grid .c{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;font:700 1em/1 var(--body);box-shadow:inset 0 0 0 1px var(--ink);color:var(--ink);padding:0;margin:0;border:0;border-radius:0;user-select:none;-webkit-user-select:none;-webkit-appearance:none;appearance:none;text-align:center;transition:background-color .18s}
+.map-grid button.c{cursor:pointer}
+.map-grid .c .id{font-size:.85em;font-weight:500;opacity:.45}
+.map-grid .c .n{display:none;position:absolute;left:.22em;top:.18em;font:800 1.25em/1 var(--disp)}
+.map-grid .c .l{display:none;position:absolute;right:.2em;top:.2em;font-style:normal;font-size:.8em;font-weight:800;opacity:.85}
+.map-grid .c .e{display:none;font-size:1.6em;line-height:1;margin-top:.62em;transition:opacity .25s,transform .25s}
+.map-grid .c.full .id{display:none}
+.map-grid .c.full .n,.map-grid .c.full .l,.map-grid .c.full .e{display:block}
+.map-grid .c .st{font:800 .95em/1 var(--disp);letter-spacing:.02em}
+
+.map-grid .k-walk{background:var(--floor)}
+.map-grid .k-start{background:var(--rush)}
+.map-grid .k-counter{background:var(--ink);color:#fff}
+.map-grid .k-dock{background:#bbb;font-weight:500}
+.map-grid .k-closed{background:repeating-linear-gradient(45deg,#000 0,#000 3px,#444 3px,#444 6px)}
+.map-grid .k-gap{background:#444;color:#fff;font-weight:500}
+.map-grid .k-shelf,.map-grid .k-spare{background:#fff}
+.map-grid .k-cold{background:var(--ice)}
+.map-grid .k-chem{background:var(--chemlite)}
+.map-grid .k-shelf.full,.map-grid .k-spare.full{background:var(--ink);color:var(--tape)}
+.map-grid .k-cold.full{background:var(--frz);color:#fff}
+.map-grid .k-chem.full{background:var(--chem)}
+
+/* Round 1: empty squares invite a tap */
+.map-grid .c.ed:not(.full){box-shadow:inset 0 0 0 1px var(--ink),inset 0 0 0 .32em rgba(255,255,255,.0)}
+.map-grid .c.ed:not(.full)::after{content:"+";position:absolute;right:.2em;bottom:.05em;font:800 1.1em/1 var(--disp);opacity:.35}
+.map-grid .c.sel{box-shadow:inset 0 0 0 .3em var(--rush),inset 0 0 0 1px var(--ink);z-index:1}
+.map-grid .c.bad::before{content:"!";position:absolute;right:0;bottom:0;width:1.25em;height:1.25em;background:var(--rush);color:#000;font:800 1em/1.25em var(--disp);text-align:center;box-shadow:0 0 0 1px var(--ink)}
+
+/* an order is being picked */
+.map-grid .c.dim>*{opacity:.38}
+.map-grid .c.tgt{background:var(--rush);color:#000;box-shadow:inset 0 0 0 2px var(--ink);z-index:1}
+.map-grid .c.got{background:#fff;color:#000;box-shadow:inset 0 0 0 .22em var(--go),inset 0 0 0 1px var(--ink)}
+.map-grid .c.got .n{text-decoration:line-through}
+.map-grid .c.got .e{opacity:.25;transform:scale(.7)}
+.map-grid .c.got::after{content:"\2713";position:absolute;right:.15em;bottom:.05em;font:800 1.3em/1 var(--disp);color:var(--go)}
+.map-grid .c.pop{animation:kit-shelfpop .5s cubic-bezier(.3,1.6,.5,1);z-index:3;overflow:visible}
+
+/* walkways: the trail, the one-way aisle, fallen pallets */
+.map-grid .k-walk.on{background:var(--trail)}
+.map-grid .c.ow{background:#FFD3E6}
+.map-grid .c.ow.on{background:#D9C2F0}
+.map-grid .c.ow::before{content:"\2193";position:absolute;left:0;right:0;top:50%;margin-top:-.55em;font:800 2.3em/1 var(--disp);color:var(--ink);text-align:center;animation:kit-flow .9s linear infinite;pointer-events:none}
+.map-grid .c.blk{overflow:visible;z-index:2;cursor:not-allowed}
+.map-grid .c.blk::after{content:"";position:absolute;top:7%;left:7%;right:7%;bottom:7%;background:repeating-linear-gradient(45deg,var(--tape) 0,var(--tape) .5em,var(--ink) .5em,var(--ink) 1em);border:.16em solid var(--ink);box-shadow:.18em .18em 0 rgba(0,0,0,.45);animation:kit-drop .55s cubic-bezier(.3,1.4,.5,1) both}
+
+/* the walked line and the ghost line(s) */
+.map-path{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+.map-path polyline{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.map-path .ln{stroke:var(--frz);stroke-width:.17}
+.map-path .gh{stroke:var(--go);stroke-width:.11;stroke-dasharray:.26 .22;animation:kit-march 1.2s linear infinite}
+.map-path .gh2{stroke:#8A2BE2}
+
+/* the picker */
+.map-av{position:absolute;left:0;top:0;width:10%;height:10%;pointer-events:none;z-index:5;will-change:transform;transform:translate3d(200%,0,0)}
+.map-av-in{position:absolute;top:10%;left:10%;right:10%;bottom:10%;border-radius:50%;background:var(--rush);border:.07em solid var(--ink);box-shadow:.08em .08em 0 var(--ink);display:flex;align-items:center;justify-content:center;font-size:calc(var(--u)*.46);line-height:1}
+.map-av.walking .map-av-in{animation:kit-bob .22s infinite alternate}
+.map-av.bump .map-av-in{animation:kit-bump .36s cubic-bezier(.3,1.6,.5,1)}
+.map-av-n{position:absolute;right:-8%;top:-8%;min-width:1.5em;height:1.5em;padding:0 .2em;border-radius:1em;background:var(--tape);border:.12em solid var(--ink);font:800 calc(var(--u)*.3)/1.3em var(--disp);font-style:normal;text-align:center;color:#000}
+.map-av-n:empty{display:none}
+.map-fly{position:absolute;left:0;top:0;width:10%;height:10%;display:flex;align-items:center;justify-content:center;font-size:calc(var(--u)*.6);line-height:1;pointer-events:none;z-index:6;will-change:transform,opacity;transition:transform .5s cubic-bezier(.3,.6,.3,1),opacity .5s ease-in}
+
+/* ---------- confetti ---------- */
+.confetti{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:60}
+
+/* ---------- animations you can put on anything ---------- */
+.a-pop{animation:kit-pop .35s cubic-bezier(.3,1.6,.5,1) both}
+.a-shake{animation:kit-shake .4s both}
+.a-rise{animation:kit-rise .4s cubic-bezier(.2,.8,.2,1) both}
+.a-flash{animation:kit-flash .7s both}
+.a-pulse{animation:kit-beat .6s infinite alternate}
+
+@keyframes kit-tgt{from{box-shadow:inset 0 0 0 1px var(--ink)}to{box-shadow:inset 0 0 0 .34em var(--ink)}}
+@keyframes kit-shelfpop{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-5deg)}100%{transform:scale(1)}}
+@keyframes kit-flow{0%{transform:translateY(-70%);opacity:0}30%{opacity:1}70%{opacity:1}100%{transform:translateY(70%);opacity:0}}
+@keyframes kit-drop{0%{transform:translateY(-160%) rotate(-16deg) scale(1.3);opacity:0}55%{opacity:1}100%{transform:none;opacity:1}}
+@keyframes kit-march{to{stroke-dashoffset:-.48}}
+@keyframes kit-bob{from{transform:translateY(0)}to{transform:translateY(-9%)}}
+@keyframes kit-bump{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
+@keyframes kit-pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes kit-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes kit-rise{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+@keyframes kit-flash{0%{background:var(--rush)}100%{}}
+@keyframes kit-beat{from{transform:scale(1)}to{transform:scale(1.12)}}
+@keyframes kit-fade{from{opacity:0}to{opacity:1}}
+@keyframes kit-sheet{from{transform:translateY(100%)}to{transform:none}}
+
+/* less motion: keep the states, drop the movement (kit.js also skips its own animations and still resolves promises) */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .map-grid .c.ow::before{animation:none;opacity:1}
+  .map-grid .c.tgt{animation:none;box-shadow:inset 0 0 0 .3em var(--ink)}
+  .map-path .gh{animation:none}
+}

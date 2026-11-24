@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dark Store Blitz - 3D preview</title>
+<style>
+@property --rx { syntax: '<angle>'; inherits: true; initial-value: 56deg; }
+@property --rz { syntax: '<angle>'; inherits: true; initial-value: -34deg; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--tape:#FFE500;--ink:#000;--rush:#FF2D87;--frz:#2B4BFF;--ice:#BFE0FF;--chem:#FF9A2E;--floor:#E8E6DA;
+--disp:"Avenir Next Condensed","HelveticaNeue-CondensedBlack","Roboto Condensed",sans-serif-condensed,"Arial Narrow",Impact,sans-serif;
+--body:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--tape);color:var(--ink);font:15px/1.4 var(--body);min-height:100vh;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;touch-action:manipulation}
+.top{display:flex;align-items:center;gap:10px;background:var(--ink);color:#fff;padding:8px 12px;font:800 18px/1 var(--disp)}
+.top b{color:var(--tape)}
+.top{white-space:nowrap}
+.top span{margin-left:auto;font:600 12px var(--body);opacity:.8;overflow:hidden;text-overflow:ellipsis}
+.wrap{max-width:980px;margin:0 auto;padding:10px 10px 30px;display:grid;gap:10px}
+@media (min-width:860px){.wrap{grid-template-columns:1fr 300px;align-items:start}}
+
+/* ---------- the 3D stage ---------- */
+#stage{position:relative;height:min(64vh,620px);min-height:340px;border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);
+  background:radial-gradient(120% 90% at 50% 20%,#2a2f55 0,#12142a 55%,#07080f 100%);overflow:hidden;perspective:1500px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+#stage.drag{cursor:grabbing}
+#floor{position:absolute;left:50%;top:50%;width:500px;height:500px;margin:-250px 0 0 -250px;transform-style:preserve-3d;
+  --rx:56deg;--rz:-34deg;--sc:1;transform:scale(var(--sc)) rotateX(var(--rx)) rotateZ(var(--rz));will-change:transform;
+  background:#1b1d2e;box-shadow:0 0 0 4px #000,0 0 80px 20px #0008}
+#floor.smooth{transition:--rx .6s ease,--rz .6s ease}
+.tile{position:absolute;width:50px;height:50px;background:var(--floor);box-shadow:inset 0 0 0 1px #0003;display:flex;align-items:center;justify-content:center;font:800 13px var(--disp);color:#0006}
+.tile.walk{cursor:pointer}
+.tile.walk:hover{background:#fff}
+.tile.start{background:var(--rush);color:#000;animation:home 1.2s infinite alternate}
+.tile.on{background:#C5CEFF}
+.tile.blk{background:repeating-linear-gradient(45deg,#000 0 6px,var(--tape) 6px 12px);cursor:not-allowed}
+.tile.oneway::after{content:"▼";color:var(--frz);font-size:20px;animation:flow .7s linear infinite}
+@keyframes home{to{box-shadow:inset 0 0 0 5px #000}}
+@keyframes flow{from{transform:translateY(-16px);opacity:0}40%{opacity:1}to{transform:translateY(16px);opacity:0}}
+
+.box{position:absolute;transform-style:preserve-3d;--b:var(--side);--m:var(--side);--t:var(--side)}
+.f{position:absolute;left:0;top:0;backface-visibility:visible;box-shadow:inset 0 0 0 1px #000}
+.ft{background:var(--topc);display:flex;align-items:flex-start;justify-content:flex-start;font:800 15px/1 var(--disp);padding:3px 4px;color:var(--num,#000)}
+.fn,.fs{transform-origin:50% 0;transform:rotateX(90deg);background:linear-gradient(to bottom,var(--b) 0 30%,#000 30% 35%,var(--m) 35% 65%,#000 65% 70%,var(--t) 70%)}
+.fw,.fe{transform-origin:0 50%;transform:rotateY(-90deg);background:linear-gradient(to right,var(--b) 0 30%,#000 30% 35%,var(--m) 35% 65%,#000 65% 70%,var(--t) 70%)}
+.fn,.fw{filter:brightness(.8)}
+.fe{filter:brightness(.62)}
+.k-shelf,.k-spare{--topc:#fff;--side:#d9d9d9}
+.k-shelf.full,.k-spare.full{--topc:#111;--side:#3a3a3a;--num:var(--tape)}
+.k-cold{--topc:var(--ice);--side:#8fc3f5}
+.k-cold.full{--topc:var(--frz);--side:#1c31b8;--num:#fff}
+.k-chem{--topc:#FFD9A8;--side:#f0b56a}
+.k-chem.full{--topc:var(--chem);--side:#c96f10}
+.k-counter{--topc:#000;--side:#222;--num:#fff}
+.k-dock{--topc:#9a9a9a;--side:#777}
+.k-closed{--topc:#2a2a2a;--side:#1a1a1a}
+.k-gap{--topc:#444;--side:#333}
+.pallet{--topc:#b98545;--side:#8a5a22;animation:drop .75s cubic-bezier(.3,.7,.4,1) both}
+.pallet .ft{background:repeating-linear-gradient(90deg,#b98545 0 8px,#8a5a22 8px 10px)}
+@keyframes drop{0%{transform:translateZ(520px);opacity:0}15%{opacity:1}62%{transform:translateZ(0)}76%{transform:translateZ(22px)}88%{transform:translateZ(0)}94%{transform:translateZ(6px)}100%{transform:translateZ(0)}}
+.box.lv-B{--b:var(--tape)}.box.lv-M{--m:var(--tape)}.box.lv-T{--t:var(--tape)}
+.box.tgt .ft{animation:want .5s infinite alternate}
+.box.got .ft{background:#fff;color:#000;text-decoration:line-through}
+.box.pop{animation:pop .35s ease-out}
+@keyframes want{from{background:var(--rush)}to{background:#ff9cc6}}
+@keyframes pop{40%{transform:translateZ(14px)}}
+
+/* things that always face the camera */
+.bb{position:absolute;width:0;height:0;transform-style:preserve-3d;pointer-events:none;
+  transform:translateZ(var(--h,0px)) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1))}
+.bb>span{position:absolute;left:0;bottom:0;transform:translateX(-50%);font-size:26px;line-height:1;white-space:nowrap;filter:drop-shadow(0 2px 0 #0008)}
+.bb.tgt>span{animation:bob .45s infinite alternate ease-in-out}
+.bb.got>span{opacity:.15}
+@keyframes bob{to{transform:translateX(-50%) translateY(-10px) scale(1.2)}}
+
+#cart{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;transition:transform .11s linear;will-change:transform;pointer-events:none}
+#cart .shadow{position:absolute;left:-18px;top:-18px;width:36px;height:36px;border-radius:50%;background:#0007;filter:blur(3px)}
+#cart .body{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;transition:transform .15s}
+#cart .box{--topc:var(--rush);--side:#c21463}
+#cart .bb>span{font-size:30px}
+#cart .load>span{font-size:16px;bottom:34px;letter-spacing:-3px}
+svg#path{position:absolute;inset:0;width:500px;height:500px;pointer-events:none;transform:translateZ(1px)}
+svg#path polyline{fill:none;stroke:var(--frz);stroke-width:.14;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 .08px #fff)}
+svg#path .ghost{stroke:var(--rush);stroke-dasharray:.2 .2;stroke-width:.09}
+#fps{position:absolute;right:8px;top:8px;background:#000a;color:#7CFF7C;font:700 12px ui-monospace,Menlo,monospace;padding:3px 7px;border:1px solid #fff5}
+#hint{position:absolute;left:8px;top:8px;color:#fff;font-size:12px;background:#000a;padding:3px 7px;max-width:70%}
+#toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%) translateY(200%);background:var(--tape);border:3px solid #000;box-shadow:4px 4px 0 #000;font:800 20px var(--disp);padding:8px 14px;transition:transform .25s;white-space:nowrap}
+#toast.show{transform:translateX(-50%)}
+.cam{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
+.cam button{background:#fff;border:2px solid #000;font:800 15px var(--disp);padding:8px 10px;min-width:40px}
+.cam button.sel{background:var(--tape)}
+
+/* ---------- side panel ---------- */
+.card{background:#fff;border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:12px}
+.card h2{font:800 24px/1 var(--disp);margin-bottom:6px}
+.side{display:grid;gap:10px}
+.bill ul{list-style:none;border-top:2px dashed #000;margin-top:6px}
+.bill li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #0005;font-family:ui-monospace,Menlo,monospace;font-size:14px}
+.bill li.ok{text-decoration:line-through;opacity:.45}
+.nums{display:flex;gap:14px;align-items:baseline;font:800 18px var(--disp)}
+.nums b{font-size:44px;line-height:.9;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.btn,.btn2{font:800 16px/1 var(--disp);padding:11px 12px;border:3px solid var(--ink)}
+.btn{background:var(--ink);color:var(--tape);box-shadow:3px 3px 0 var(--rush)}
+.btn2{background:#fff;box-shadow:3px 3px 0 var(--ink)}
+.btn2.sel{background:var(--tape)}
+.btn:active,.btn2:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.alert{background:var(--rush);border:3px solid #000;padding:8px 10px;font-weight:700}
+.note{font-size:13px}
+@media (prefers-reduced-motion:reduce){.tile.start,.tile.oneway::after,.box.tgt .ft,.bb.tgt>span{animation:none}}
+</style>
+</head>
+<body>
+<header class="top">Dark Store Blitz <b>3D preview</b><span>try-out only, not part of the game yet</span></header>
+<div class="wrap">
+  <div id="stage">
+    <div id="floor"></div>
+    <div id="hint">Tap a walkway to walk there. Drag to turn the camera.</div>
+    <div id="fps">-- fps</div>
+    <div class="cam">
+      <button data-cam="left" aria-label="Turn left">⟲</button>
+      <button data-cam="right" aria-label="Turn right">⟳</button>
+      <button data-cam="3d" class="sel">3D</button>
+      <button data-cam="2d">Flat</button>
+    </div>
+    <div id="toast"></div>
+  </div>
+  <div class="side">
+    <div class="card bill"><h2 id="title">Order</h2><div id="crisis"></div><ul id="items"></ul></div>
+    <div class="card"><div class="nums"><span><b id="m">0</b> m</span><span><b id="p">150</b> pts</span></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" data-act="auto">▶ Play shortest route</button>
+        <button class="btn2" data-act="clear">Clear</button>
+      </div></div>
+    <div class="card"><h2>Try a situation</h2><div class="row" id="scen"></div></div>
+    <p class="note">The green number in the corner is frames per second. 50 to 60 is smooth; below 30 would feel laggy on that device. Open this page on a phone too before deciding.</p>
+  </div>
+</div>
+<script src="game.js"></script>
+<script>
+(function () {
+'use strict';
+var G = window.Game, S = 50;
+var LAYOUT = {C2:{p:2,l:'M'},C4:{p:1,l:'M'},C5:{p:7,l:'M'},D2:{p:4,l:'M'},D4:{p:3,l:'T'},D5:{p:9,l:'B'},E2:{p:6,l:'T'},E4:{p:5,l:'M'},E5:{p:10,l:'M'},F2:{p:11,l:'M'},F4:{p:8,l:'T'},F5:{p:12,l:'M'},C7:{p:14,l:'M'},C8:{p:21,l:'M'},D7:{p:18,l:'M'},D8:{p:23,l:'M'},E7:{p:19,l:'M'},F7:{p:20,l:'T'},J1:{p:15,l:'M'},J2:{p:17,l:'M'},J3:{p:24,l:'M'},J8:{p:13,l:'M'},J9:{p:16,l:'M'},J10:{p:22,l:'M'}};
+var SCEN = [
+  { key: 'normal', name: 'Normal order', title: 'Sunday Brunch', items: [1, 6, 12, 18, 20] },
+  { key: 'oil', name: 'Oil spill', title: 'Tea Time', items: [10, 14, 19, 11], oneWay: true, crisis: 'Oil spill! Aisle 6 is one-way, downward only.' },
+  { key: 'pallet', name: 'Pallet crash', title: 'Movie Night', items: [4, 8, 2, 15], blocked: ['B4', 'B5', 'B7', 'B8'], crisis: 'Pallets fell on B4, B5, B7 and B8. Walk around.' },
+  { key: 'boss', name: 'Both at once', title: 'Festival Rush', items: [3, 9, 13, 17, 23, 5], oneWay: true, blocked: ['B4', 'B5'], crisis: 'Oil spill AND pallets. Double points.' }
+];
+var HEIGHT = { shelf: 36, spare: 30, cold: 30, chem: 30, counter: 24, dock: 5, closed: 12, gap: 5 };
+var stage = document.getElementById('stage'), floor = document.getElementById('floor'), toastEl = document.getElementById('toast');
+var cam = { rx: 56, rz: -34 }, R = SCEN[0], route = [G.START], picked = {}, runId = 0, tiles = {}, boxes = {}, bbs = {}, cart, cartBody, load, pathEl, ghostEl, heading = 0;
+
+function el(cls, parent) { var d = document.createElement('div'); d.className = cls; if (parent) parent.appendChild(d); return d; }
+function box(parent, x, y, w, d, h, cls) {
+  var b = el('box ' + cls, parent), f;
+  b.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + d + 'px';
+  f = el('f ft', b); f.style.cssText = 'width:' + w + 'px;height:' + d + 'px;transform:translateZ(' + h + 'px)';
+  f = el('f fn', b); f.style.cssText = 'width:' + w + 'px;height:' + h + 'px';
+  f = el('f fs', b); f.style.cssText = 'width:' + w + 'px;height:' + h + 'px;top:' + d + 'px';
+  f = el('f fw', b); f.style.cssText = 'width:' + h + 'px;height:' + d + 'px';
+  f = el('f fe', b); f.style.cssText = 'width:' + h + 'px;height:' + d + 'px;left:' + w + 'px';
+  return b;
+}
+function billboard(parent, x, y, h, text, cls) {
+  var b = el('bb ' + (cls || ''), parent);
+  b.style.cssText = 'left:' + x + 'px;top:' + y + 'px;--h:' + h + 'px';
+  var s = document.createElement('span'); s.textContent = text; b.appendChild(s);
+  return b;
+}
+function centre(id) { var q = G.rc(id); return [(q[1] - 0.5) * S, (q[0] + 0.5) * S]; }
+function toast(t) { toastEl.textContent = t; toastEl.className = 'show'; clearTimeout(toast.t); toast.t = setTimeout(function () { toastEl.className = ''; }, 2600); }
+
+// ---------- build the warehouse once ----------
+function build() {
+  var r, c, k, id, x, y, it, b, h;
+  for (r = 0; r < 10; r++) for (c = 1; c <= 10; c++) {
+    k = G.kind(r, c); id = G.cid(r, c); x = (c - 1) * S; y = r * S;
+    if (k === 'walk' || k === 'start') {
+      b = el('tile walk' + (k === 'start' ? ' start' : ''), floor);
+      b.style.left = x + 'px'; b.style.top = y + 'px'; b.dataset.id = id;
+      if (k === 'start') b.textContent = 'A3';
+      tiles[id] = b;
+      continue;
+    }
+    h = HEIGHT[k]; it = LAYOUT[id];
+    b = box(floor, x, y, S, S, h, 'k-' + k + (it ? ' full lv-' + it.l : ''));
+    b.dataset.shelf = id;
+    if (it) {
+      b.querySelector('.ft').textContent = it.p;
+      bbs[id] = billboard(floor, x + S / 2, y + S / 2, h, G.product(it.p).emoji);
+    } else if (k === 'counter' && c === 1) b.querySelector('.ft').textContent = 'COUNTER';
+    boxes[id] = b;
+  }
+  var ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.id = 'path'; svg.setAttribute('viewBox', '0 0 10 10');
+  ghostEl = document.createElementNS(ns, 'polyline'); ghostEl.setAttribute('class', 'ghost'); svg.appendChild(ghostEl);
+  pathEl = document.createElementNS(ns, 'polyline'); svg.appendChild(pathEl);
+  floor.appendChild(svg);
+  cart = el('', floor); cart.id = 'cart';
+  el('shadow', cart);
+  cartBody = el('body', cart);
+  box(cartBody, -14, -14, 28, 28, 16, 'cartbox');
+  billboard(cart, 0, 0, 16, '🧑‍🔧');
+  load = billboard(cart, 0, 0, 16, '', 'load');
+  var sc = document.getElementById('scen');
+  SCEN.forEach(function (s, i) {
+    var bt = document.createElement('button'); bt.className = 'btn2' + (i ? '' : ' sel'); bt.textContent = s.name; bt.dataset.scen = i; sc.appendChild(bt);
+  });
+}
+
+// ---------- one situation ----------
+var pallets = [];
+function setScenario(i) {
+  R = SCEN[i]; runId++;
+  [].forEach.call(document.querySelectorAll('[data-scen]'), function (b) { b.classList.toggle('sel', +b.dataset.scen === i); });
+  pallets.forEach(function (p) { p.remove(); }); pallets = [];
+  Object.keys(tiles).forEach(function (id) {
+    var q = G.rc(id), t = tiles[id];
+    t.classList.toggle('blk', G.isBlocked(R, id));
+    t.classList.toggle('oneway', !!R.oneWay && q[1] === 6 && q[0] >= 2 && q[0] <= 7);
+  });
+  (R.blocked || []).forEach(function (id, n) {
+    var q = G.rc(id), p = box(floor, (q[1] - 1) * S + 5, q[0] * S + 5, 40, 40, 26, 'pallet');
+    p.style.animationDelay = (n * 0.12) + 's';
+    pallets.push(p);
+  });
+  document.getElementById('title').textContent = R.title;
+  document.getElementById('crisis').innerHTML = R.crisis ? '<p class="alert">' + R.crisis + '</p>' : '';
+  reset();
+}
+function reset() {
+  runId++;
+  route = [G.START]; picked = {}; ghostEl.setAttribute('points', '');
+  cart.style.transition = 'none'; place(G.START); cart.offsetWidth; cart.style.transition = '';
+  refresh();
+}
+function place(id) { var p = centre(id); cart.style.transform = 'translate3d(' + p[0] + 'px,' + p[1] + 'px,0)'; }
+function face(from, to) {
+  var a = G.rc(from), b = G.rc(to), want = b[0] > a[0] ? 180 : b[0] < a[0] ? 0 : b[1] > a[1] ? 90 : -90;
+  var d = ((want - heading) % 360 + 540) % 360 - 180;       // shortest turn
+  heading += d; cartBody.style.transform = 'rotateZ(' + heading + 'deg)';
+}
+function refresh() {
+  var on = {}, ul = document.getElementById('items'), m = route.length - 1, need = {};
+  route.forEach(function (x) { on[x] = 1; });
+  Object.keys(tiles).forEach(function (id) { tiles[id].classList.toggle('on', !!on[id] && id !== G.START); });
+  pathEl.setAttribute('points', route.map(function (x) { var q = G.rc(x); return (q[1] - 0.5) + ',' + (q[0] + 0.5); }).join(' '));
+  R.items.forEach(function (p) { need[G.where(LAYOUT, p)] = p; });
+  Object.keys(boxes).forEach(function (id) {
+    var p = need[id], b = boxes[id], bb = bbs[id];
+    b.classList.toggle('tgt', !!p && !picked[p]); b.classList.toggle('got', !!p && !!picked[p]);
+    if (bb) { bb.classList.toggle('tgt', !!p && !picked[p]); bb.classList.toggle('got', !!p && !!picked[p]); }
+  });
+  ul.innerHTML = R.items.map(function (p) {
+    return '<li class="' + (picked[p] ? 'ok' : '') + '"><span>' + (picked[p] ? '✔ ' : '') + G.product(p).emoji + ' ' + G.product(p).name + '</span><span>' + G.where(LAYOUT, p) + '</span></li>';
+  }).join('');
+  load.firstChild.textContent = R.items.filter(function (p) { return picked[p]; }).map(function (p) { return G.product(p).emoji; }).join('');
+  document.getElementById('m').textContent = m;
+  document.getElementById('p').textContent = G.pts(m) * (R.key === 'boss' ? 2 : 1);
+}
+function fly(p, shelf, at) {              // the item jumps off the shelf into the cart
+  var s = centre(shelf), c = centre(at), h = HEIGHT[G.kindOf(shelf)], f = el('bb', floor), sp = document.createElement('span');
+  var face_ = ' rotateZ(' + (-cam.rz) + 'deg) rotateX(' + (-cam.rx) + 'deg)';
+  sp.textContent = G.product(p).emoji; f.appendChild(sp);
+  boxes[shelf].classList.remove('pop'); boxes[shelf].offsetWidth; boxes[shelf].classList.add('pop');
+  if (!f.animate) { f.remove(); return; }
+  f.animate([
+    { transform: 'translate3d(' + s[0] + 'px,' + s[1] + 'px,' + h + 'px)' + face_ + ' scale(1)' },
+    { transform: 'translate3d(' + (s[0] + c[0]) / 2 + 'px,' + (s[1] + c[1]) / 2 + 'px,' + (h + 60) + 'px)' + face_ + ' scale(1.5)', offset: 0.45 },
+    { transform: 'translate3d(' + c[0] + 'px,' + c[1] + 'px,22px)' + face_ + ' scale(.5)' }
+  ], { duration: 480, easing: 'ease-in-out' }).onfinish = function () { f.remove(); };
+}
+function arrive(id) {
+  R.items.forEach(function (p) {
+    if (picked[p]) return;
+    var w = G.where(LAYOUT, p);
+    if (w && G.spots(w, R).indexOf(id) >= 0) { picked[p] = 1; fly(p, w, id); }
+  });
+  refresh();
+  if (id === G.START && G.isDone(route, R.items, LAYOUT, R)) toast('Delivered! ' + (route.length - 1) + ' m');
+}
+function walkPath(path, stepMs) {           // walk square by square; a newer walk cancels this one
+  var my = ++runId, i = 1;
+  cart.style.transitionDuration = stepMs + 'ms';
+  return new Promise(function (done) {
+    (function next() {
+      if (my !== runId || i >= path.length) return done(my === runId);
+      face(path[i - 1], path[i]); route.push(path[i]); place(path[i]);
+      var at = path[i]; i++;
+      setTimeout(function () { if (my === runId) { arrive(at); next(); } else done(false); }, stepMs);
+    })();
+  });
+}
+function walkTo(id) {
+  var cur = route[route.length - 1], p;
+  if (id === cur) return;
+  if (G.isBlocked(R, id)) return toast('That square is blocked.');
+  p = G.pathTo(cur, id, R);
+  if (!p) return toast('You cannot get there.');
+  walkPath(p, p.length > 8 ? 70 : 110);
+}
+function autoPlay() {
+  var best = G.solve(LAYOUT, R.items, R);
+  if (!best) return toast('No route possible.');
+  reset();
+  ghostEl.setAttribute('points', best.path.map(function (x) { var q = G.rc(x); return (q[1] - 0.5) + ',' + (q[0] + 0.5); }).join(' '));
+  walkPath(best.path, 130);
+}
+
+// ---------- camera ----------
+function applyCam(smooth) {
+  floor.classList.toggle('smooth', !!smooth);
+  floor.style.setProperty('--rx', cam.rx + 'deg'); floor.style.setProperty('--rz', cam.rz + 'deg');
+  [].forEach.call(document.querySelectorAll('[data-cam]'), function (b) {
+    if (b.dataset.cam === '3d') b.classList.toggle('sel', cam.rx > 5);
+    if (b.dataset.cam === '2d') b.classList.toggle('sel', cam.rx <= 5);
+  });
+}
+function fit() {
+  var w = stage.clientWidth, h = stage.clientHeight;
+  floor.style.setProperty('--sc', Math.min(w / 800, h / 640).toFixed(3));
+}
+var drag = null, dragged = false;
+stage.addEventListener('pointerdown', function (e) { if (e.target.closest('.cam')) return; drag = { x: e.clientX, y: e.clientY, rx: cam.rx, rz: cam.rz }; dragged = false; });
+window.addEventListener('pointermove', function (e) {
+  if (!drag) return;
+  var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!dragged && Math.abs(dx) + Math.abs(dy) < 10) return;
+  dragged = true; stage.classList.add('drag');
+  cam.rz = drag.rz + dx * 0.4; cam.rx = Math.max(0, Math.min(74, drag.rx - dy * 0.3));
+  applyCam(false);
+});
+window.addEventListener('pointerup', function () { drag = null; stage.classList.remove('drag'); });
+document.addEventListener('click', function (e) {
+  var t = e.target, b;
+  if ((b = t.closest('[data-cam]'))) {
+    if (b.dataset.cam === 'left') cam.rz -= 90; else if (b.dataset.cam === 'right') cam.rz += 90;
+    else if (b.dataset.cam === '3d') { cam.rx = 56; cam.rz = Math.round((cam.rz + 34) / 90) * 90 - 34; }
+    else { cam.rx = 0; cam.rz = Math.round(cam.rz / 360) * 360; }
+    return applyCam(true);
+  }
+  if ((b = t.closest('[data-scen]'))) return setScenario(+b.dataset.scen);
+  if ((b = t.closest('[data-act]'))) return b.dataset.act === 'auto' ? autoPlay() : reset();
+  if (dragged) { dragged = false; return; }
+  if ((b = t.closest('.tile.walk'))) return walkTo(b.dataset.id);
+  if ((b = t.closest('[data-shelf]')) && LAYOUT[b.dataset.shelf]) {             // tapping a shelf walks to its nearest pick square
+    var cur = route[route.length - 1], bestP = null;
+    G.spots(b.dataset.shelf, R).forEach(function (s) { var p = G.pathTo(cur, s, R); if (p && (!bestP || p.length < bestP.length)) bestP = p; });
+    if (bestP && bestP.length > 1) walkPath(bestP, bestP.length > 8 ? 70 : 110);
+  }
+});
+
+// ---------- frames per second ----------
+var frames = 0, last = performance.now(), fpsEl = document.getElementById('fps');
+(function loop(now) {
+  frames++;
+  if (now - last >= 1000) { fpsEl.textContent = Math.round(frames * 1000 / (now - last)) + ' fps'; frames = 0; last = now; }
+  requestAnimationFrame(loop);
+})(last);
+
+build(); fit(); applyCam(false); setScenario(0);
+window.addEventListener('resize', fit);
+})();
+</script>
+</body>
+</html>

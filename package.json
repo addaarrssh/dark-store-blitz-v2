@@ -1,0 +1,13 @@
+{
+  "name": "dark-store-blitz-v2",
+  "version": "2.0.0",
+  "description": "Dark Store Blitz V2 - Real-time Live Warehouse Competition & 3D Spectator Arena",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
