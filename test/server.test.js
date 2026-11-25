@@ -309,6 +309,28 @@ test('a whole small game: too-fast flag, double drop, hidden podium, Next button
   assert.ok(hv.ok && hv.phase === 'order' && hv.podium === 0);
   hv = await host({ a: 'hfinal' });
   assert.strictEqual(hv.podium, 0);
+  // ---- the showdown decides the podium: when it closes, phones must not see the top three before the final does
+  const di = hv.rounds.findIndex(r => r.showdown);
+  assert.ok(di >= 0);
+  hv = await host({ a: 'hround', i: di, force: true });
+  assert.ok(hv.ok && hv.phase === 'order');
+  let sv = await api({ a: 'state', k: T.Alpha.k });
+  const opened = sv.sa;
+  assert.ok(typeof opened === 'number' && opened > 0);
+  hv = await host({ a: 'hend' });
+  assert.strictEqual(hv.phase, 'reveal');
+  for (const n of names) {
+    sv = await api({ a: 'state', k: T[n].k });
+    assert.ok(sv.phase === 'reveal' && sv.board.slice(0, 3).every(x => x.hid && !x.name) && !sv.board.slice(3).some(x => x.hid));
+    assert.ok(sv.team.rank === null ? sv.team.top3 === true : sv.team.rank > 3);
+  }
+  // an order that is played again is a new one for the phones (their old drawn route must not come back)
+  await sleep(5);
+  hv = await host({ a: 'hround', i: di, force: true });
+  sv = await api({ a: 'state', k: T.Alpha.k });
+  assert.ok(sv.sa > opened);
+  hv = await host({ a: 'hfinal' });
+  assert.strictEqual(hv.podium, 0);
 });
 // long enough after the order opened that a hand-in of this many steps is believable (server: 1.5 s + 0.1 s a step)
 function FAST_WAIT(steps) { return 1500 + 100 * steps + 250; }

@@ -24,7 +24,8 @@
   var pend = [];          // layout changes sent but not confirmed yet
   var D = null;           // route draft {id, k, mode, trip, r:{a,b,c}, m:{a,b,c}}
   var seenGot = {}, lastCtx = '', seenForce = false, seenT = 0;
-  var sending = false, armed = false, armT = 0;
+  var sending = false, armed = false, armT = 0, sentAt = 0, held = false;
+  var HOLD_TEXT = 'The game server restarted. Wait a moment: the organiser is bringing the game back.';
   var lastRouteSig = null;
   var rvKey = '', rvTok = 0, rvDone = false, rvCounted = '';
   var boardSig = '';
@@ -289,7 +290,8 @@
     $('board').innerHTML = '';
     show('join', false); show('app', false); show('wait', true);
     $('wait').textContent = 'Connecting…';
-    conn = K.connect({ key: m.k, role: 'player', onView: onView, onStatus: onStatus, onGone: onGone });
+    held = false;
+    conn = K.connect({ key: m.k, role: 'player', onView: onView, onStatus: onStatus, onGone: onGone, onHold: onHold });
     wakeSync();
   }
   function onGone() {
@@ -297,6 +299,7 @@
     keyStore.clear();
     showJoin('Your team is not in the game any more. The organiser removed it or started a new game. Join again.');
   }
+  function onHold(h) { held = h; onStatus(status); }
   function onStatus(s) {
     status = s;
     var c = $('conn'), strip = $('strip');
@@ -306,9 +309,12 @@
     else {
       strip.hidden = false;
       strip.className = 'strip' + (s === 'polling' ? ' polling' : '');
-      strip.textContent = s === 'polling' ? 'Reconnecting… you can keep playing.' : 'No connection. Check the Wi-Fi. This screen shows the last thing it received.';
+      strip.textContent = held && s !== 'offline' ? HOLD_TEXT : s === 'polling' ? 'Reconnecting… you can keep playing.' : 'No connection. Check the Wi-Fi. This screen shows the last thing it received.';
     }
-    if (!V) $('wait').textContent = s === 'offline' ? 'Cannot reach the game. Check you are on the same Wi-Fi as the organiser.' : 'Connecting…';
+    if (!V) {
+      if (held && s !== 'offline') $('wait').innerHTML = esc(HOLD_TEXT) + '<br><br><button type="button" class="link" data-act="leave">Not your game? Join again</button>';
+      else $('wait').textContent = s === 'offline' ? 'Cannot reach the game. Check you are on the same Wi-Fi as the organiser.' : 'Connecting…';
+    }
   }
   function onView(v) {
     if (!v || !v.team) return;
@@ -341,7 +347,7 @@
     else if (v.phase === 'locked' && pr === 'layout') { K.sound('buzzer'); K.vibrate(250); }
     else if (v.phase === 'layout' && pr === 'lobby') { K.sound('pop'); K.vibrate(150); }
     if (v.phase === 'order' && pr === 'order' && rid === prid) {
-      if (v.mine && !prev.mine && !sending) K.toast('A teammate handed in for your team.', 'ok');
+      if (v.mine && !prev.mine && !sending) K.toast(Date.now() - sentAt < 30000 ? 'Your route WAS handed in.' : 'A teammate handed in for your team.', 'ok');
       if (!v.mine && prev.mine) K.toast('Your hand-in was cleared. You can walk this order again.');
     }
     if (v.msg && (!prev.msg || prev.msg.at !== v.msg.at)) { K.vibrate(80); K.sound('pop'); }
@@ -365,10 +371,11 @@
     return out;
   }
   function draftFor(R, L) {
-    if (D && D.id === R.id && D.k === me.k) return D;
+    var sa = (V && V.sa) || 0;       // a replayed order starts with an empty map, not with the old finished route
+    if (D && D.id === R.id && D.k === me.k && D.sa === sa) return D;
     var s = draftStore.get(), keys = ['a', 'b', 'c'], i, x, rt;
-    D = { id: R.id, k: me.k, mode: null, trip: 0, r: { a: [G.START], b: [G.START], c: [G.START] }, m: { a: [], b: [], c: [] }, cleared: null };
-    if (s && s.id === R.id && s.k === me.k && s.r && typeof s.r === 'object') {
+    D = { id: R.id, k: me.k, sa: sa, mode: null, trip: 0, r: { a: [G.START], b: [G.START], c: [G.START] }, m: { a: [], b: [], c: [] }, cleared: null };
+    if (s && s.id === R.id && s.k === me.k && (s.sa || 0) === sa && s.r && typeof s.r === 'object') {
       if (R.double && (s.mode === 'A' || s.mode === 'B')) D.mode = s.mode;
       if (D.mode === 'B' && G.missing(R.a.concat(R.b), L).length) D.mode = null;
       D.trip = s.trip === 1 ? 1 : 0;
@@ -708,9 +715,11 @@
     conn.send(body).then(function (r) {
       if (r.ok) { K.sound('done'); K.vibrate([60, 40, 60]); K.confetti({ count: 40, ms: 1500 }); }
       else if (!r.gone) {
-        K.toast(r.net ? 'No connection: your route was NOT handed in. Tap Hand in again.' : r.err, 'bad');
+        // no reply does not mean it did not arrive: ask the server before telling the team to walk again
+        K.toast(r.net ? 'No reply from the game. Checking if your route arrived… If this screen still shows Hand in, tap it again.' : r.err, 'bad');
         K.sound('error');
-        if (!r.net && conn) conn.refresh();
+        if (r.net) sentAt = Date.now();
+        if (conn) conn.refresh();
       }
       sending = false;
       render();

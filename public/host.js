@@ -828,7 +828,8 @@
     joinlock: function () { send({ a: 'hjoin' }).then(function (r) { if (r.ok) Kit.toast(r.joinOpen ? 'Joining is open again.' : 'Joining is locked.', 'ok'); }); },
     addtime: function (v) {
       var s = Number(v) || 0, left = Kit.timeLeft(V);
-      var go = function () { send({ a: 'htime', secs: s }).then(function (r) { if (r.ok) Kit.toast((s > 0 ? 'Added ' : 'Removed ') + (Math.abs(s) >= 60 ? many(Math.abs(s) / 60, 'minute') : Math.abs(s) + ' seconds') + '.', 'ok'); }); };
+      if (s < 0 && timeBusy) return;                                  // a double click must not take the time off twice
+      var go = function () { if (s < 0) timeBusy = true; send({ a: 'htime', secs: s }).then(function (r) { timeBusy = false; if (r.ok) Kit.toast((s > 0 ? 'Added ' : 'Removed ') + (Math.abs(s) >= 60 ? many(Math.abs(s) / 60, 'minute') : Math.abs(s) + ' seconds') + '.', 'ok'); }); };
       // taking away more time than is left would end the round on the spot: ask first
       if (s < 0 && left != null && left <= -s * 1000 + 1500) {
         ask({ title: 'Take away ALL the time that is left?', text: 'Only ' + Kit.fmtTime(left) + ' is left on the clock. Taking ' + many(Math.round(-s / 60), 'minute') + ' off ends ' + (V.phase === 'layout' ? 'Round 1' : 'this order') + ' for everybody right now.', ok: 'Yes, end it now', danger: true })
@@ -947,10 +948,15 @@
       });
     },
     redo: function (id) {
-      var t = teamById(id), R = V.round;
+      var t = teamById(id), R = V.round, ph = V.phase;
       if (!t || !R) return;
       ask({ title: 'Let ' + t.name + ' redo ' + R.label + '?', text: 'Their result for this order is deleted.' + (V.phase === 'order' ? ' They can hand in again while the order is running.' : ' The order is already closed, so they score 0 for it unless you play it again.'), ok: 'Delete the result', danger: true })
-        .then(function (yes) { if (yes) send({ a: 'hredo', tid: id }, 'Result deleted for ' + t.name + '.'); });
+        .then(function (yes) {
+          if (!yes) return;
+          // asked while the order was running, answered after it closed: the team could not hand in again
+          if (ph === 'order' && (!V || V.phase !== 'order' || !V.round || V.round.id !== R.id)) { Kit.toast('The order closed in the meantime. Nothing was deleted.', 'bad'); return; }
+          send({ a: 'hredo', tid: id }, 'Result deleted for ' + t.name + '.');
+        });
     },
     kick: function (id) {
       var t = teamById(id);
@@ -990,11 +996,13 @@
   var backupStore = Kit.store('dsb_backup');     // {at, boot, teams, phase, ri, game}
   var backupDirty = false, backupBusy = false, backupFail = false, backupAt = 0, askedBoot = '';
   var BACKUP_MS = 8000, BACKUP_OLD = 24 * 3600 * 1000;
+  var timeBusy = false, lastAct = '', lastActAt = 0, TOGGLE = { pause: 1, joinlock: 1, sales: 1 };
   // true while this browser holds a copy of an earlier game that is worth more than what the server has now
   function oldCopy(v) {
     var b = backupStore.get();
     if (!b || !b.game || !b.boot || !v || !v.boot || b.boot === v.boot) return null;
-    if (v.phase !== 'lobby' || !(b.teams > v.teams.length) || Date.now() - b.at > BACKUP_OLD) return null;
+    // worth more: it has more teams, or it was a game in progress (phones that joined again must not hide it)
+    if (v.phase !== 'lobby' || !(b.teams > v.teams.length || (b.phase && b.phase !== 'lobby')) || Date.now() - b.at > BACKUP_OLD) return null;
     return b;
   }
   function clockTime(ms) {
@@ -1053,7 +1061,12 @@
         (now ? 'It REPLACES what is on the server now (' + many(now, 'team') + '). ' : '') +
         'Layouts, scores and team PINs come back. A running clock comes back paused. Phones reconnect by themselves.',
       ok: 'Put the game back', cancel: 'Not now', danger: !!now, type: now && !restarted ? 'RESTORE' : ''
-    }).then(function (yes) { if (yes) doRestore(game); return !!yes; });
+    }).then(function (yes) {
+      // the box may have been open for a while: never replace a game that appeared in the meantime without the full warning
+      if (yes && !now && V && V.teams.length) { Kit.toast('The game changed while this box was open. Nothing was replaced. Try again.', 'bad'); return false; }
+      if (yes) doRestore(game);
+      return !!yes;
+    });
   }
   // called on every view: the server restarted and came back empty, and this browser still has the game
   function offerRestore(v) {
@@ -1067,7 +1080,9 @@
         'Put the game back? Layouts, scores and team PINs come back, a running clock comes back paused, and phones reconnect by themselves.',
       ok: 'Put the game back', cancel: 'Not now'
     }).then(function (yes) {
-      if (yes) doRestore(b.game);
+      // another organiser screen may have put the game back already: do not roll it back from here
+      if (yes && oldCopy(V) !== null) doRestore(b.game);
+      else if (yes) Kit.toast('The game is already running again. Nothing was replaced.', 'ok');
       else Kit.toast('The safety copy is kept. You find it in the Control room.', 'ok');
       if (V) renderSafety(V);
     });
@@ -1132,6 +1147,8 @@
     if (d) { ev.preventDefault(); if (Date.now() - dlgAt > 400) closeDialog(null); return; }
     if (act) {
       if (t.disabled || !ACT[act]) return;
+      // switches: the second click of a double click would undo the first
+      if (TOGGLE[act]) { if (act === lastAct && Date.now() - lastActAt < 600) return; lastAct = act; lastActAt = Date.now(); }
       if (t.tagName === 'BUTTON') { ev.preventDefault(); try { t.blur(); } catch (e) {} }
       if (!V && act !== 'help') return;
       ACT[act](t.getAttribute('data-v'));

@@ -216,7 +216,9 @@
     var key = String(o.key || ''), stateAct = o.role === 'host' ? 'hstate' : 'state';
     var closed = false, es = null, live = false, status = '', view = null;
     var lastNow = 0, lastSig = null, lastMsgAt = 0, pollOk = true;
-    var backoff = 0, reTimer = 0, pollTimer = 0, pollBusy = false, safeTimer = 0;
+    var backoff = 0, reTimer = 0, pollTimer = 0, pollBusy = false, safeTimer = 0, held = false;
+    // hold: the server restarted empty and waits for the organiser to put the game back (it answers {hold:true})
+    function setHold(h) { if (closed || h === held) return; held = h; call(o.onHold, h); }
 
     function setStatus(s) { if (closed || s === status) return; status = s; call(o.onStatus, s); }
     function refreshStatus() { setStatus(live ? 'live' : pollOk ? 'polling' : 'offline'); }
@@ -230,6 +232,7 @@
       var sig = stripNow(text);
       if (sig === lastSig) return true;
       lastSig = sig; view = v;
+      setHold(false);
       call(o.onView, v);
       return true;
     }
@@ -242,6 +245,7 @@
       if (closed) return;
       var reply = r.reply;
       if (reply.gone || reply.badPin) return gone();
+      if (reply.hold) return setHold(true);
       if (reply.ok === true && typeof reply.phase === 'string') { syncClock(reply.now); apply(reply, r.text); }
     }
 

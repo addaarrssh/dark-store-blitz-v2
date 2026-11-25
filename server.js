@@ -313,8 +313,10 @@ const byTotal = (x, y) => y.tot.pts - x.tot.pts || x.tot.meters - y.tot.meters |
 const fullRes = (R, r) => !R.double || r.mode === 'B' || !!(r.route && r.route2);
 // The final results keep the podium secret until the organiser reveals it: places 1..hidden are masked on the phones.
 function podiumHidden() {
-  if (S.phase !== 'final') return 0;
   const places = Math.min(3, S.teams.size);
+  // The showdown result decides the podium, so its reveal keeps the same secret on the phones as the final does.
+  if (S.phase === 'reveal' && DUEL && ROUNDS[S.ri] === DUEL) return places;
+  if (S.phase !== 'final') return 0;
   return places - Math.min(S.podium, places);
 }
 // The scoreboard and everything built from it is worked out once per change, not once per phone.
@@ -415,6 +417,7 @@ function playerBody(t) {
     ok: true, phase: S.phase, endsAt: S.endsAt, pausedLeft: S.pausedLeft, timer: S.timer, demo: S.demo, msg: S.msg,
     ri: S.ri, roundCount: ROUNDS.length, podium: S.phase === 'final' ? S.podium : 0,
     round: R,                                            // null unless an order is running or being revealed
+    sa: R ? S.startedAt : 0,                             // when this order was opened: a replayed order is a new one for the phones
     sales: S.showSales ? SOLD : null,
     team: { name: t.name, layout: t.layout, pts: tot.pts, meters: tot.meters, pen: tot.pen, penList: tot.penList, adj: t.adj,
             rank, top3, devices: x.streams.size, bounty: tot.bounty },
@@ -1091,7 +1094,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  To stop the game press Ctrl + C\n');
 
   // Keep-alive ping loop for Render free tier so it never spins down
-  const pingUrl = process.env.RENDER_EXTERNAL_URL || 'https://dark-store-blitz-v2.onrender.com';
+  const pingUrl = process.env.RENDER_EXTERNAL_URL || '';      // set by Render itself: a game on a laptop pings nobody
   if (pingUrl) {
     const proto = pingUrl.startsWith('https') ? require('https') : require('http');
     const pingTimer = setInterval(() => {
