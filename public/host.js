@@ -26,6 +26,7 @@
   // ------------------------------------------------------------------ sign in
   function showLogin(note) {
     if (conn) { conn.close(); conn = null; }
+    autoOn = false; stopAuto();
     V = null; prevPhase = null; prevRound = null; hostKey = '';
     closeDialog(null);
     show($('help'), false); show($('rules'), false);
@@ -151,6 +152,8 @@
     PHASES.forEach(function (p) { show($('s-' + p), p === v.phase); });
     if (v.phase !== 'lobby') show($('rules'), false);         // the rules are only on the wall before Round 1 starts
     if (v.phase !== 'order' && duelSig) dropDuel();           // the live showdown maps go when the order closes
+    if (changed || rid !== prevRound) stopAuto();
+    syncAuto(v);
 
     renderTop(v);
     renderDock(v);
@@ -256,16 +259,19 @@
       else h += btn('final', '🏁 Show final results', { primary: true, tip: 'End the game and open the podium' });
       var canReopen = v.ri < 0 && !v.done.length;
       h += btn('reopen', '↩ Reopen layouts for 5 min', { off: !canReopen, tip: canReopen ? 'Let teams fix their store for 5 more minutes' : 'Not possible once an order has been played' });
+      h += btn('auto', autoLabel(v), { hot: autoOn, tip: autoOn ? 'Automatic mode is ON — click to switch OFF' : 'Run orders automatically (1 min each, 20 s between orders)' });
     } else if (p === 'order') {
       h += btn('addtime', '+30 s', { v: 30, off: noTime, tip: 'Add 30 seconds to the clock' });
       h += pauseBtn;
       h += btn('end', '⏹ End order now', { primary: true, tip: 'Close this order early. Teams that have not handed in get 0 for it.' });
+      h += btn('auto', autoLabel(v), { hot: autoOn, tip: autoOn ? 'Automatic mode is ON — click to switch OFF' : 'Run orders automatically (1 min each, 20 s between orders)' });
     } else if (p === 'reveal') {
       nx = nextIndex(v);
       if (nx != null) h += btn('next', '▶ Next: ' + esc(publicLabel(v, nx)), { primary: true, tip: 'Send the next order to every phone and start its clock. You are asked first.' });
       else h += btn('final', '🏁 Show final results', { primary: true, tip: 'End the game and open the podium' });
       h += btn('replay', '↻ Replay best run', { off: !v.spotlight, tip: 'Show the best route of this round again on the map' });
       if (nx != null) h += btn('final', '🏁 Final results', { tip: 'End the game early and open the podium' });
+      h += btn('auto', autoLabel(v), { hot: autoOn, tip: autoOn ? 'Automatic mode is ON — click to switch OFF' : 'Run orders automatically (1 min each, 20 s between orders)' });
     } else if (p === 'final') {
       var places = podiumPlaces(v), left = places - ui.finalStep;
       // the button rests for a moment after each reveal, so a double click (or N pressed twice) cannot show two places at once
@@ -806,6 +812,43 @@
     if (ui.drawer && V) renderDrawer(V);
   }
 
+  // ------------------------------------------------------------------ automatic mode (runs orders + 20s reveal wait)
+  var autoOn = false, autoAt = 0, autoTimer = 0, autoTick = 0, autoBusy = false;
+  var AUTO_LOCK_MS = 2000, AUTO_REVEAL_MS = 20000;
+  function autoLabel(v) {
+    if (!autoOn) return '🤖 Auto: OFF';
+    if (v && v.phase === 'order') return '🤖 Auto: ON · running';
+    if (autoAt > 0) return '🤖 Auto: ON · next in ' + Math.max(1, Math.ceil((autoAt - Date.now()) / 1000)) + 's';
+    return '🤖 Auto: ON';
+  }
+  function stopAuto() {
+    clearTimeout(autoTimer); autoTimer = 0;
+    clearInterval(autoTick); autoTick = 0;
+    autoAt = 0; autoBusy = false;
+  }
+  function runAutoStep() {
+    stopAuto();
+    if (!autoOn || !V || autoBusy || !$('dlg').hidden) return;
+    if (V.phase !== 'locked' && V.phase !== 'reveal') return;
+    var nx = nextIndex(V);
+    autoBusy = true;
+    if (nx != null) startRound(nx).then(function () { autoBusy = false; if (V) syncAuto(V); });
+    else send({ a: 'hfinal' }).then(function () { autoBusy = false; });
+  }
+  function syncAuto(v) {
+    if (!autoOn || !v || v.phase === 'lobby' || v.phase === 'layout' || v.phase === 'final') {
+      if (v && (v.phase === 'lobby' || v.phase === 'final')) autoOn = false;
+      stopAuto(); return;
+    }
+    if (v.phase === 'order') { stopAuto(); return; }
+    if ((v.phase === 'locked' || v.phase === 'reveal') && !autoAt && !autoBusy) {
+      var delay = v.phase === 'locked' ? AUTO_LOCK_MS : AUTO_REVEAL_MS;
+      autoAt = Date.now() + delay;
+      autoTick = setInterval(function () { if (V) renderDock(V); }, 500);
+      autoTimer = setTimeout(runAutoStep, delay);
+    }
+  }
+
   // ------------------------------------------------------------------ what every control does
   function startRound(i, force) {
     return send({ a: 'hround', i: i, force: !!force }).then(function (r) {
@@ -866,6 +909,13 @@
       var left = (V.duel ? V.duel.teams.length : V.stats.teams) - V.stats.submitted;
       ask({ title: 'End this order now?', text: left > 0 ? many(left, 'team has', 'teams have') + ' not handed in yet and will get 0 for this order.' : 'Every team has handed in.', ok: 'End the order' })
         .then(function (yes) { if (yes) send({ a: 'hend' }); });
+    },
+    auto: function () {
+      if (!V || (V.phase !== 'locked' && V.phase !== 'order' && V.phase !== 'reveal')) return;
+      autoOn = !autoOn;
+      if (!autoOn) { stopAuto(); Kit.toast('Automatic mode is OFF.', 'ok'); renderDock(V); return; }
+      Kit.toast('Automatic mode is ON. Orders will run automatically.', 'ok');
+      syncAuto(V); renderDock(V);
     },
     final: goFinal,
     replay: function () { if (V && V.phase === 'reveal') playSpot(V, true); },
