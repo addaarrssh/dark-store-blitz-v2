@@ -92,14 +92,19 @@
     <section id="s-order" class="stg stg-order" hidden>
       <div class="col">
         <div id="crisis" class="crisis" hidden></div>
-        <div class="ordrow">
+        <div class="ordrow" id="ordRow">
           <div id="ticket" class="tix"></div>
           <div id="ordMapBox" class="ordmap" hidden><div id="ordMap"></div><p class="mapcap" id="ordMapCap"></p></div>
+        </div>
+        <div id="duelBox" class="duelbox" hidden>
+          <div id="duelItems" class="duelitems"></div>
+          <div id="duelGrid" class="duelgrid"></div>
         </div>
       </div>
       <div class="col">
         <div id="ordTimer" class="bigtimer" aria-label="time left"></div>
         <p id="ordNote" class="tnote"></p>
+        <p id="ordHunt" class="hunt" hidden></p>
         <div class="prog">
           <p class="prog-txt" id="ordProgTxt"></p>
           <div class="pbar"><i id="ordBar"></i></div>
@@ -117,6 +122,7 @@
       </div>
       <div class="col">
         <div class="statrow three" id="revStats"></div>
+        <p id="revHunt" class="hunt" hidden></p>
         <h3 class="sub">Top 10 <small id="revBoardNote"></small></h3>
         <ol id="revBoard" class="board hboard"></ol>
       </div>
@@ -277,6 +283,8 @@
           <li>If the game laptop restarts in the middle of a round, the clock comes back <b>paused</b>. Press Resume.</li>
           <li>The dot at the top right is green when this screen is live. If it turns pink, the screen keeps the last state and reconnects by itself.</li>
           <li>Sounds need one click or key press on this page first.</li>
+          <li><b>🎯 Bounty</b> From the second order on, the leader carries a bounty. Every team that beats the leader's score on that order gets +15.</li>
+          <li><b>⚔️ Showdown</b> After the last order, Next offers the Top-4 Showdown. Only the top four can hand in, and their routes are drawn live here and on the 3D screen.</li>
         </ul>
       </div>
     </div>

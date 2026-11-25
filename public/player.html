@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0B0B0F">
 <title>Dark Store Blitz</title>
 <link rel="stylesheet" href="/kit.css">
 <link rel="stylesheet" href="/player.css">
@@ -35,6 +35,7 @@
       <span class="conn" id="conn" role="img" aria-label="connecting"></span>
       <span class="who" id="who"></span>
       <span class="sc" id="sc" hidden></span>
+      <span class="rk" id="rk" hidden></span>
       <button class="q" id="qBtn" type="button" data-act="rules">Help</button>
       <span class="pz" id="pz" hidden>PAUSED</span>
       <span class="tm" id="tm" aria-label="time left"></span>
@@ -59,7 +60,7 @@
           </ol>
         </div>
       </div>
-      <div class="card" id="lobbyRules"></div>
+      <div id="lobbyRules" class="rulebook"></div>
     </div>
 
     <div id="mapWrap" hidden>
@@ -80,7 +81,6 @@
   </main>
 
   <div id="bar" class="bar" hidden>
-    <!-- Clear sits on the far left, away from Hand in. (After a Clear, Undo brings the route back.) -->
     <button class="btn2 clr" type="button" id="bClear" data-act="clear">Clear</button>
     <div class="mt"><b id="mtNum">0 m</b><small id="mtSub"></small></div>
     <button class="btn2" type="button" id="bUndo" data-act="undo">Undo</button>
@@ -88,6 +88,7 @@
   </div>
 </div>
 
+<div id="promo" class="promo" data-act="promo" role="dialog" aria-live="polite" hidden></div>
 <div id="sheetHost"></div>
 
 <noscript><p class="wait">This game needs JavaScript. Please switch it on.</p></noscript>

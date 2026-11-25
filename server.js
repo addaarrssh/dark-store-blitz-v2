@@ -17,7 +17,19 @@ const Orders = require('./orders.js');
 let ORDERS;
 try { ORDERS = Orders.load(); }
 catch (e) { console.error('\n  The game cannot start: ' + e.message + '\n'); process.exit(1); }
+// The top-four showdown: one extra order at the end that only the four best teams play (see orders.js). SHOWDOWN=0 turns it off.
+if (process.env.SHOWDOWN !== '0') ORDERS.data = Orders.withShowdown(ORDERS.data, String(process.env.HOST_PIN || '') + '|' + ORDERS.set);
 const { LAYOUT_MINUTES, SOLD, ROUNDS } = ORDERS.data;
+const DUEL = ROUNDS.find(r => r.showdown) || null;
+// Bounty on the leader: the team in first place when an order starts carries a bounty; every team that beats the
+// leader's score on that order earns BOUNTY_PTS. BOUNTY_COUNTS=0 shows it as a badge only (not in the ranking).
+const BOUNTY_PTS = 15;
+const BOUNTY_COUNTS = process.env.BOUNTY_COUNTS !== '0';
+// SHOWDOWN_MODE=title (default): the showdown result decides the order of the top four. SHOWDOWN_MODE=add: its points just add up.
+const SHOWDOWN_MODE = process.env.SHOWDOWN_MODE === 'add' ? 'add' : 'title';
+const DUEL_SIZE = 4;
+const RULES_INFO = { bounty: BOUNTY_PTS, bountyCounts: BOUNTY_COUNTS, showdown: DUEL ? SHOWDOWN_MODE : null, duelSize: DUEL_SIZE,
+                     orders: ROUNDS.filter(r => !r.showdown).length };
 const PIN_IS_DEFAULT = !process.env.HOST_PIN;      // 123456 is written in the public code: fine at home, not in a competition
 const BOOT = crypto.randomBytes(6).toString('hex'); // changes every time the server starts: the organiser screen uses it to notice a restart
 
@@ -57,15 +69,19 @@ function fresh(pin, hostKeys) {
     ri: -1, done: [], msg: null, layoutSecs: LAYOUT_MINUTES * 60, teams: new Map(),
     startedAt: 0,                    // when the running order was opened (ms)
     podium: 0,                       // final results: how many podium places the organiser has revealed so far (0..3)
-    hostPin: pin || process.env.HOST_PIN || '123456', hostKeys: hostKeys || []
+    hunt: Object.create(null),       // round id -> id of the team that carried the bounty in it ('' = no bounty)
+    duel: [],                        // ids of the showdown teams (the top four when it started)
+    hostPin: pin || process.env.HOST_PIN || '889900', hostKeys: hostKeys || []
   };
 }
-let S = fresh(process.env.HOST_PIN || '123456');
+let S = fresh(process.env.HOST_PIN || '889900');
 const byKey = new Map();             // team key -> team
 const byName = new Map();            // lower-case team name -> team
 const live = new Map();              // team id -> { streams:Set, g, ok, body }  (things we never save)
 const hostStreams = new Set();
 const bestCache = new Map();         // "teamId|roundId" -> best possible result for that layout
+const liveRoute = new Map();         // team id -> {route, at}: showdown routes while they are being walked (never saved)
+let liveVer = 0;                     // goes up whenever a live showdown route changed
 
 function reindex() {
   byKey.clear(); byName.clear();
@@ -187,6 +203,10 @@ function revive(d, pin, quiet) {
     if ((n.phase === 'order' || n.phase === 'reveal') && n.ri < 0) n.phase = 'locked';
     n.startedAt = Number(d.startedAt) > 0 ? Number(d.startedAt) : 0;
     n.podium = n.phase === 'final' && Number.isInteger(d.podium) && d.podium > 0 ? Math.min(3, d.podium) : 0;
+    if (d.hunt && typeof d.hunt === 'object') {
+      for (const id of Object.keys(d.hunt)) if (ROUND_IDS.has(id) && typeof d.hunt[id] === 'string') n.hunt[id] = d.hunt[id].slice(0, 32);
+    }
+    if (Array.isArray(d.duel)) n.duel = d.duel.filter(x => typeof x === 'string' && x).map(x => x.slice(0, 32)).slice(0, DUEL_SIZE);
     // A clock that was running when the server stopped is PAUSED, so nobody loses time to a restart.
     // Time left is counted from the moment of the last save (not from now): the minutes the server was down do not count.
     // The organiser presses Resume when the room is ready.
@@ -216,7 +236,7 @@ function load() {
   }
 }
 load();
-S.hostPin = String(process.env.HOST_PIN || '123456');
+S.hostPin = String(process.env.HOST_PIN || '889900');
 reindex();
 saveDirty = true;                    // make sure the organiser PIN is on disk from the first second
 
@@ -244,6 +264,7 @@ function restore(d) {
   for (const x of Array.from(live.values())) for (const s of Array.from(x.streams)) dropStream(s, false);
   S = n; graceUntil = 0;
   live.clear(); bestCache.clear(); dirtyTeams.clear(); warmJob++; reindex();
+  liveRoute.clear(); liveVer++;
   badTeam.clear(); badName.clear();
   touchAll();
   const R = roundNow();
@@ -267,15 +288,27 @@ function tick() {                    // runs 4 times a second, and before every 
 }
 
 // ---------- scores ----------
+const orderPts = r => r ? r.score + r.bonus + r.perfect : 0;
+const huntOf = id => has(S.hunt, id) && typeof S.hunt[id] === 'string' ? S.hunt[id] : '';
+// Bounty points team t earned on round id. Worked out from the results (never stored), and only once the order is
+// closed, so a Redo or a replayed round always gives the right answer.
+function bountyOf(t, id) {
+  const lead = huntOf(id);
+  if (!lead || lead === t.id || !has(t.res, id) || !S.done.includes(id)) return 0;
+  const L = S.teams.get(lead);
+  if (!L) return 0;
+  return orderPts(t.res[id]) > orderPts(L.res[id]) ? BOUNTY_PTS : 0;
+}
 function totals(t) {
-  let p = 0, m = 0, a = 0;
-  for (const id of Object.keys(t.res)) { const r = t.res[id]; p += r.score + r.bonus + r.perfect; m += r.meters; }
+  let p = 0, m = 0, a = 0, bty = 0;
+  for (const id of Object.keys(t.res)) { const r = t.res[id]; p += r.score + r.bonus + r.perfect; m += r.meters; bty += bountyOf(t, id); }
   for (const x of t.adj) a += x.pts;
   const penList = started() ? Game.penalties(t.layout) : [];       // layout mistakes only count once layouts are locked
   let pen = 0;
   for (const x of penList) pen += x.pts;
-  return { pts: p + a - pen, meters: m, pen, penList, adjSum: a };
+  return { pts: p + a - pen + (BOUNTY_COUNTS ? bty : 0), meters: m, pen, penList, adjSum: a, bounty: bty };
 }
+const byTotal = (x, y) => y.tot.pts - x.tot.pts || x.tot.meters - y.tot.meters || (x.t.name < y.t.name ? -1 : x.t.name > y.t.name ? 1 : 0);
 // true unless this is a double-drop hand-in that delivered only one of the two orders
 const fullRes = (R, r) => !R.double || r.mode === 'B' || !!(r.route && r.route2);
 // The final results keep the podium secret until the organiser reveals it: places 1..hidden are masked on the phones.
@@ -290,7 +323,15 @@ function derived() {
   if (calc.ver === ver) return calc;
   const rows = [];
   for (const t of S.teams.values()) rows.push({ t, tot: totals(t) });
-  rows.sort((x, y) => y.tot.pts - x.tot.pts || x.tot.meters - y.tot.meters || (x.t.name < y.t.name ? -1 : x.t.name > y.t.name ? 1 : 0));
+  rows.sort(byTotal);
+  // Showdown in "title" mode: once it is closed, its teams take the first places in the order of their showdown result.
+  if (DUEL && SHOWDOWN_MODE === 'title' && S.duel.length && S.done.includes(DUEL.id)) {
+    const inDuel = new Set(S.duel), fin = rows.filter(x => inDuel.has(x.t.id)), rest = rows.filter(x => !inDuel.has(x.t.id));
+    const dp = x => has(x.t.res, DUEL.id) ? orderPts(x.t.res[DUEL.id]) : -1;
+    const dm = x => has(x.t.res, DUEL.id) ? x.t.res[DUEL.id].meters : Infinity;
+    fin.sort((x, y) => dp(y) - dp(x) || dm(x) - dm(y) || byTotal(x, y));
+    rows.length = 0; rows.push(...fin, ...rest);
+  }
   const rank = new Map(), tot = new Map();
   rows.forEach((x, i) => { rank.set(x.t.id, i + 1); tot.set(x.t.id, x.tot); });
   const R = roundNow();
@@ -328,7 +369,7 @@ function bestOf(t, R) {              // the best this team could have done with 
 // so the "reveal" screen is instant even with 300 teams.
 let warmJob = 0;
 function warmBest(R) {
-  const job = ++warmJob, ids = Array.from(S.teams.keys());
+  const job = ++warmJob, ids = R.showdown ? S.duel.filter(id => S.teams.has(id)) : Array.from(S.teams.keys());
   let i = 0;
   (function slice() {
     if (job !== warmJob) return;
@@ -364,7 +405,9 @@ function playerBody(t) {
   const showRank = S.phase === 'locked' || showBoard;
   const d = (showBoard || showRank) ? derived() : null;
   let best = null;
-  if (R && reveal) { const b = bestOf(t, R); if (b) best = { meters: b.meters, score: b.score, mode: b.mode, path: b.path, path2: b.path2 }; }
+  const inDuel = !!(R && R.showdown && S.duel.includes(t.id));
+  if (R && reveal && (!R.showdown || inDuel)) { const b = bestOf(t, R); if (b) best = { meters: b.meters, score: b.score, mode: b.mode, path: b.path, path2: b.path2 }; }
+  const lead = R ? huntOf(R.id) : '', leadT = lead ? S.teams.get(lead) : null;
   // final results: a team on a podium place that is still secret only learns "you are in the top 3"
   let rank = showRank ? d.rank.get(t.id) || null : null, top3 = false;
   if (rank && d.hid && rank <= d.hid) { rank = null; top3 = true; }
@@ -374,31 +417,35 @@ function playerBody(t) {
     round: R,                                            // null unless an order is running or being revealed
     sales: S.showSales ? SOLD : null,
     team: { name: t.name, layout: t.layout, pts: tot.pts, meters: tot.meters, pen: tot.pen, penList: tot.penList, adj: t.adj,
-            rank, top3, devices: x.streams.size },
+            rank, top3, devices: x.streams.size, bounty: tot.bounty },
     mine: R ? pickRes(t.res[R.id]) : null,
     best,
     board: showBoard ? d.top10 : null,
     teamCount: S.teams.size,
-    stats: reveal ? d.stats : null
+    stats: reveal ? d.stats : null,
+    rules: RULES_INFO,
+    hunt: leadT ? { target: leadT.name, me: lead === t.id, got: reveal ? bountyOf(t, R.id) : 0 } : null,
+    duel: R && R.showdown ? { in: inDuel, names: S.duel.map(id => S.teams.get(id)).filter(Boolean).map(u => u.name) } : null
   });
   x.g = gver; x.ok = true;
   return x.body;
 }
 
-let hostCache = { ver: -1, body: '' };
+let hostCache = { ver: -1, lv: -1, body: '' };
 function hostBody() {
-  if (hostCache.ver === ver) return hostCache.body;
+  if (hostCache.ver === ver && hostCache.lv === liveVer) return hostCache.body;
   const d = derived(), R = roundNow(), reveal = S.phase === 'reveal';
   let devices = 0, teams = [];
   for (const t of S.teams.values()) {
     const tot = d.tot.get(t.id), n = rt(t).streams.size, r = R ? t.res[R.id] : null;
     let best = null;
-    if (R && reveal) { const b = bestOf(t, R); if (b) best = { meters: b.meters, score: b.score, mode: b.mode }; }
+    if (R && reveal && (!R.showdown || S.duel.includes(t.id))) { const b = bestOf(t, R); if (b) best = { meters: b.meters, score: b.score, mode: b.mode }; }
     devices += n;
     teams.push({
       id: t.id, name: t.name, placed: Object.keys(t.layout).length, devices: n, pts: tot.pts, meters: tot.meters, pen: tot.pen,
       penList: tot.penList, adj: t.adj,
-      res: r ? { meters: r.meters, score: r.score, bonus: r.bonus, perfect: r.perfect, mode: r.mode, full: fullRes(R, r), fast: !!r.fast } : null,
+      res: r ? { meters: r.meters, score: r.score, bonus: r.bonus, perfect: r.perfect, mode: r.mode, full: fullRes(R, r), fast: !!r.fast,
+                 at: r.at, bty: bountyOf(t, R.id) } : null,
       best
     });
   }
@@ -410,16 +457,40 @@ function hostBody() {
   const body = JSON.stringify({
     ok: true, phase: S.phase, endsAt: S.endsAt, pausedLeft: S.pausedLeft, timer: S.timer, demo: S.demo, joinOpen: S.joinOpen,
     showSales: S.showSales, msg: S.msg, ri: S.ri, done: S.done, podium: S.phase === 'final' ? S.podium : 0,
-    rounds: ROUNDS.map(r => ({ id: r.id, label: r.label, title: r.title, stage: r.stage })),
+    rounds: ROUNDS.map(r => ({ id: r.id, label: r.label, title: r.title, stage: r.stage, showdown: !!r.showdown })),
     round: R, urls: lanUrls(), sales: SOLD, layoutSecs: S.layoutSecs,
     boot: BOOT, safety: { defaultPin: PIN_IS_DEFAULT, orders: ORDERS.set },
     teams,
-    board: d.rows.map(x => ({ name: x.t.name, pts: x.tot.pts, meters: x.tot.meters, pen: x.tot.pen })),
+    board: d.rows.map(x => ({ name: x.t.name, pts: x.tot.pts, meters: x.tot.meters, pen: x.tot.pen, bounty: x.tot.bounty })),
     stats: { teams: S.teams.size, devices, submitted: d.stats.submitted, perfect: d.stats.perfect },
-    spotlight
+    spotlight,
+    rules: RULES_INFO,
+    hunt: huntView(R),
+    duel: duelView(R)
   });
-  hostCache = { ver, body };
+  hostCache = { ver, lv: liveVer, body };
   return body;
+}
+// Who carries the bounty in round R, and (once it is closed) who beat them.
+function huntView(R) {
+  const lead = R ? huntOf(R.id) : '', L = lead ? S.teams.get(lead) : null;
+  if (!L) return null;
+  const claimed = [];
+  if (S.done.includes(R.id)) for (const t of S.teams.values()) if (bountyOf(t, R.id)) claimed.push(t.name);
+  return { target: L.name, pts: BOUNTY_PTS, counts: BOUNTY_COUNTS, claimed: claimed.slice(0, 40), n: claimed.length };
+}
+// The showdown teams with their live (or handed-in) routes, for the big screens.
+function duelView(R) {
+  if (!R || !R.showdown) return null;
+  const teams = [];
+  for (const id of S.duel) {
+    const t = S.teams.get(id);
+    if (!t) continue;
+    const r = t.res[R.id], lr = liveRoute.get(id);
+    teams.push({ id, name: t.name, layout: t.layout, done: !!r, route: r ? r.route : lr ? lr.route : null,
+                 meters: r ? r.meters : null, pts: r ? orderPts(r) : null });
+  }
+  return { mode: SHOWDOWN_MODE, teams };
 }
 
 // ---------- live streams (Server-Sent Events) ----------
@@ -487,7 +558,8 @@ function flush() {
   if (allDirty) { allDirty = false; dirtyTeams.clear(); for (const id of live.keys()) flushTeam(id); }
   else if (dirtyTeams.size) { const ids = Array.from(dirtyTeams); dirtyTeams.clear(); for (const id of ids) flushTeam(id); }
   const now = Date.now();
-  if (hostDirty && now - lastHostPush >= HOST_PUSH_MS) {
+  const gap = DUEL && S.phase === 'order' && ROUNDS[S.ri] === DUEL ? 200 : HOST_PUSH_MS;     // the showdown is drawn live: push faster
+  if (hostDirty && now - lastHostPush >= gap) {
     hostDirty = false; lastHostPush = now;
     if (hostStreams.size) { const body = hostBody(); for (const s of hostStreams) if (s.last !== body) push(s, body); }
   }
@@ -595,6 +667,23 @@ function join(b, who) {
   return { ok: true, k: t.key, name: t.name, created, devices: rt(t).streams.size };
 }
 
+// A showdown team's phone sends the route it is walking, a few times a second, so the big screens can draw it live.
+// Only the route is checked (start at START, legal steps); nothing is scored here.
+function trace(t, b) {
+  const R = ROUNDS[S.ri];
+  if (S.phase !== 'order' || !R || !R.showdown || b.round !== R.id || !S.duel.includes(t.id) || has(t.res, R.id)) return { ok: false, err: 'No live route now.' };
+  const rt = b.route;
+  if (!Array.isArray(rt) || !rt.length || rt.length > 400 || rt[0] !== Game.START) return { ok: false, err: 'That route did not work.' };
+  for (let i = 1; i < rt.length; i++) {
+    if (!Game.validCell(rt[i]) || Game.steps(rt[i - 1], R).indexOf(rt[i]) < 0) return { ok: false, err: 'That route did not work.' };
+  }
+  const old = liveRoute.get(t.id);
+  if (old && old.route.length === rt.length && old.route.every((c, i) => c === rt[i])) return { ok: true };
+  liveRoute.set(t.id, { route: rt.slice(), at: Date.now() });
+  liveVer++; hostDirty = true;
+  return { ok: true };
+}
+
 // Returns a problem in words, or nothing if it worked.
 function teamAct(a, b, t, who) {
   if (a === 'state') return;
@@ -617,6 +706,7 @@ function teamAct(a, b, t, who) {
   if (a === 'submit') {
     const R = ROUNDS[S.ri];
     if (S.phase !== 'order' || !R || b.round !== R.id) return 'Too late, this order is closed.';
+    if (R.showdown && !S.duel.includes(t.id)) return 'Only the top four teams play the showdown. Watch the big screen!';
     if (has(t.res, R.id)) return 'You already handed this one in.';
     const out = Game.scoreSubmission(R, t.layout, { route: b.route, route2: b.route2, mode: b.mode });
     if (!out || out.err) return (out && out.err) || 'That route did not work.';
@@ -627,12 +717,14 @@ function teamAct(a, b, t, who) {
     // speed bonus: the first few teams to hand in (3, or one team in ten when the room is big)
     let earlier = 0;
     for (const x of S.teams.values()) if (has(x.res, R.id) && !x.res[R.id].fast) earlier++;
-    const bonus = !fast && earlier < Math.max(3, Math.ceil(S.teams.size * 0.10)) ? Game.SCORE.speedBonus : 0;
+    const slots = R.showdown ? 1 : Math.max(3, Math.ceil(S.teams.size * 0.10));       // showdown: only the first to finish
+    const bonus = !fast && earlier < slots ? Game.SCORE.speedBonus : 0;
     // perfect bonus: nobody could have done better with this layout
     const best = bestOf(t, R);
     const perfect = best && out.score >= best.score ? Game.SCORE.perfectBonus : 0;
     t.res[R.id] = { meters: out.meters, score: out.score, bonus, perfect, mode: out.mode, at, route: out.route, route2: out.route2 };
     if (fast) t.res[R.id].fast = true;
+    if (R.showdown) { liveRoute.delete(t.id); liveVer++; }      // the handed-in route takes over from the live one
     touchTeam(t);
     return;
   }
@@ -647,7 +739,7 @@ function teamAct(a, b, t, who) {
 }
 
 const HOST_ACTIONS = new Set(['hstate', 'hlayout', 'hlock', 'hround', 'hend', 'hfinal', 'htime', 'hpause', 'htimer', 'hdemo', 'hjoin', 'hsales', 'hmsg', 'hkick', 'hadjust', 'hredo', 'hreset', 'hpodium', 'hpin']);
-const TEAM_ACTIONS = new Set(['state', 'place', 'remove', 'submit', 'replay']);
+const TEAM_ACTIONS = new Set(['state', 'place', 'remove', 'submit', 'replay', 'trace']);
 
 // Returns a problem in words, a ready reply object, or nothing if it worked.
 function hostAct(a, b) {
@@ -676,6 +768,14 @@ function hostAct(a, b) {
     if (S.phase === 'order' && S.ri !== i) { const old = ROUNDS[S.ri]; if (old && !S.done.includes(old.id)) S.done.push(old.id); }
     for (const t of S.teams.values()) delete t.res[R.id];
     S.done = S.done.filter(x => x !== R.id);
+    liveRoute.clear(); liveVer++;
+    // Bounty: it goes on the leader at this moment, once an order has been played, the leader has points and the room
+    // has at least 3 teams. The showdown has no bounty: it takes the top four instead.
+    if (R.showdown) S.duel = [];
+    ver++;                                               // results were wiped: work the ranking out again
+    const rows = derived().rows, top = rows[0];
+    S.hunt[R.id] = !R.showdown && top && S.teams.size >= 3 && S.done.length > 0 && top.tot.pts > 0 ? top.t.id : '';
+    if (R.showdown) S.duel = rows.slice(0, DUEL_SIZE).map(x => x.t.id);
     S.ri = i; S.phase = 'order'; S.pausedLeft = 0; S.endsAt = S.timer ? now + R.secs * 1000 : 0;
     S.startedAt = now; S.podium = 0;
     warmBest(R);
@@ -725,6 +825,7 @@ function hostAct(a, b) {
     S.teams.delete(t.id); byKey.delete(t.key); byName.delete(t.name.toLowerCase());
     for (const k of t.alt || []) if (byKey.get(k) === t) byKey.delete(k);
     closeTeamStreams(t);
+    liveRoute.delete(t.id); liveVer++;
     for (const k of Array.from(bestCache.keys())) if (k.startsWith(t.id + '|')) bestCache.delete(k);
   } else if (a === 'hadjust') {
     const t = teamOf();
@@ -747,10 +848,12 @@ function hostAct(a, b) {
     if (!R) return 'No order is running or being shown.';
     if (!t) return 'That team is not in the game.';
     delete t.res[R.id];
+    liveRoute.delete(t.id); liveVer++;
   } else if (a === 'hreset') {
     for (const t of Array.from(S.teams.values())) closeTeamStreams(t);
     S = fresh(S.hostPin, S.hostKeys);
     live.clear(); bestCache.clear(); dirtyTeams.clear(); warmJob++; reindex();
+    liveRoute.clear(); liveVer++;
     badTeam.clear(); badName.clear(); graceUntil = 0;
   } else return 'Unknown action.';
   touchAll();
@@ -772,6 +875,7 @@ function act(b, who) {
   if (TEAM_ACTIONS.has(a)) {
     const t = k ? byKey.get(k) : null;
     if (!t) return holding() ? HOLD : JSON.stringify({ ok: false, gone: true, err: 'Your team is not in the game any more. Join again.' });
+    if (a === 'trace') return JSON.stringify(trace(t, b));        // small reply: phones send these many times a second
     const e = teamAct(a, b, t, who);
     return e ? JSON.stringify(fail(e)) : withNow(playerBody(t));
   }
@@ -981,6 +1085,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  Organiser screen (this laptop):  http://localhost:' + PORT + '/host');
   console.log('  Organiser PIN:                   ' + S.hostPin + (PIN_IS_DEFAULT ? '   (the public default: set HOST_PIN before a competition)' : ''));
   console.log('  Orders:                          ' + (ORDERS.set === 'secret' ? 'the SECRET competition set (' + ORDERS.from + ')' : 'the public PRACTICE set (rounds.js). Not for a competition.'));
+  console.log('  Bounty / showdown:               +' + BOUNTY_PTS + (BOUNTY_COUNTS ? ' (counts)' : ' (badge only)') + '  /  ' +
+    (DUEL ? DUEL.label + ', ' + (SHOWDOWN_MODE === 'title' ? 'decides the title' : 'points add up') : 'off'));
   console.log('  Players type this on phones:     ' + (urls.join('   or   ') || 'connect this laptop to Wi-Fi, then start again'));
   console.log('\n  To stop the game press Ctrl + C\n');
 

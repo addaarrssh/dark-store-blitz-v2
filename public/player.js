@@ -11,6 +11,7 @@
   var keyStore = K.store('dsb_team');        // {k, name}
   var nameStore = K.store('dsb_teamname');   // {name} kept after "gone" so joining again is quick
   var draftStore = K.store('dsb_draft');     // the route being drawn for the running order
+  var rankStore = K.store('dsb_rank');       // {k, i}: the corps rank this phone last showed for the team
 
   var me = null;          // {k, name}
   var conn = null;        // Kit.connect handle
@@ -30,6 +31,7 @@
   var flags = { soon: false, urgent: false };
   var scShown = null, finalFx = false, finalWin = false, clockH = null;
   var wake = null, wakeBusy = false;      // the screen wake lock (keeps the phone awake while the team is in the game)
+  var traceT = 0, traceSig = '', traceAt = 0, promoT = 0;
 
   // ------------------------------------------------------------------ small helpers
   function setHtml(id, html) {
@@ -68,29 +70,65 @@
     }
     return out;
   }
-  // The FULL rules, with the placement rules and the penalty list. Only for the lobby: once Round 1 has started the
-  // phone shows helpHtml() instead, so no team gets coached by its phone while it plays.
+  // ------------------------------------------------------------------ the rules
+  // The FULL rules (placing rules + penalty list) are only shown in the lobby. Once Round 1 has started the same button
+  // opens helpHtml() instead, so no team gets coached by its phone while it plays.
+  function rsec(icon, title, body, cls) {
+    return '<section class="rb' + (cls ? ' ' + cls : '') + '"><h3><i>' + icon + '</i><span>' + title + '</span></h3>' + body + '</section>';
+  }
+  function rlist(items) { return '<ul>' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>'; }
   function rulesHtml() {
     var P = G.PENALTY;
     return '<div class="rules">' +
-      '<h3>The job</h3><p>You run a tiny warehouse. First your team decides where all 24 products go. Then orders come in: walk from START (A3), collect the items, walk back to START. Less walking, more points.</p>' +
-      '<h3>Round 1: placing</h3><ul><li>One product per shelf square. Pick a level: top, middle or bottom.</li><li>Cold items go in J1 to J3 only.</li><li>Chemicals go in J8 to J10 only. No food there.</li><li>Atta is heavy, so bottom level.</li><li>Fragile items never go on the bottom level.</li><li>Eggs must not sit next to Atta.</li><li>If you leave a product out, every order with it scores 0.</li><li>Everyone in your team can place at the same time. The layout is shared.</li></ul>' +
-      walkHtml() +
-      '<h3>Layout penalties</h3><ul><li>Cold item outside J1 to J3: −' + P.cold + '</li><li>Chemical outside J8 to J10: −' + P.chemical + '</li><li>Food in the chemical zone: −' + P.foodInChem + '</li><li>Atta not on the bottom: −' + P.heavy + '</li><li>Fragile item on the bottom: −' + P.fragile + '</li><li>Eggs next to Atta: −' + P.eggsAtta + '</li></ul>' +
+      rsec('🏪', 'The job', '<p>You run a tiny dark store. First your team decides where all 24 products go. Then orders come in: walk from <b>START (A3)</b>, collect the items, walk back to START. <b>Less walking, more points.</b></p>', 'lead') +
+      rsec('📦', 'Round 1 · stock your store', rlist([
+        'One product per shelf square. Pick a level: <b>top</b>, <b>middle</b> or <b>bottom</b>.',
+        'Cold items go in <b>J1 to J3</b> only.',
+        'Chemicals go in <b>J8 to J10</b> only. No food there.',
+        'Atta is heavy: <b>bottom level</b>.',
+        'Fragile items <b>never</b> on the bottom level.',
+        'Eggs must <b>not</b> sit next to Atta.',
+        'A product you leave out makes every order with it score <b>0</b>.',
+        'Everyone in your team can place at the same time. The store is shared.'])) +
+      rsec('⚠️', 'Layout penalties', '<ul class="pts">' + [
+        ['Cold item outside J1 to J3', P.cold], ['Chemical outside J8 to J10', P.chemical], ['Food in the chemical zone', P.foodInChem],
+        ['Atta not on the bottom', P.heavy], ['Fragile item on the bottom', P.fragile], ['Eggs next to Atta', P.eggsAtta]
+      ].map(function (x) { return '<li><span>' + x[0] + '</span><b>−' + x[1] + '</b></li>'; }).join('') +
+        '</ul><p class="note">Counted once, when the layouts lock. They add up.</p>', 'warnsec') +
+      playHtml() +
       '<p class="rules-once"><b>Read these now.</b> Once Round 1 starts, your phone does not show the placing rules or the penalties again, and it does not warn you about a wrong shelf.</p></div>';
   }
-  // walking + points + surprises: the same text in the rules and in the help
-  function walkHtml() {
-    var S = G.SCORE;
-    return '<h3>Orders: walking</h3><ul><li>Tap a walkway square to walk there. Tap a shelf to walk next to it.</li><li>You only walk on walkway squares. Never through shelves.</li><li>Every trip starts and ends at START (A3). One square is 1 meter.</li><li>To pick an item, stand on a walkway square that touches its shelf. Picking is free.</li><li>Your team hands in once per order. Any teammate can do it.</li></ul>' +
-      '<h3>Points</h3><ul><li>Each order: ' + S.base + ' − ' + S.perMeter + ' × meters walked.</li><li>Fast hand-in: the first few teams get +' + S.speedBonus + '.</li><li>Perfect route: +' + S.perfectBonus + ' if nobody could walk your layout any shorter.</li><li>Tie? The team that walked less in total wins.</li></ul>' +
-      '<h3>Surprises</h3><ul><li>Later orders bring trouble: one-way aisles, blocked squares, two orders at once. The screen tells you what changed.</li><li>The last order is worth double points.</li></ul>';
+  // walking, points, bounty, ranks, surprises, showdown: the same text in the rules and in the help
+  function playHtml() {
+    var S = G.SCORE, R = (V && V.rules) || {}, n = R.duelSize || 4, out = '';
+    out += rsec('🏃', 'Orders · walking', rlist([
+      'Tap a walkway square to walk there. Tap a shelf to walk next to it.',
+      'Walk only on walkway squares, never through shelves.',
+      'Every trip starts and ends at <b>START (A3)</b>. One square = <b>1 meter</b>.',
+      'Stand on a walkway square that touches a shelf to pick its item. Picking is free.',
+      'Your team hands in <b>once</b> per order. Any teammate can do it.']));
+    out += rsec('🧮', 'Points', '<ul class="pts">' +
+      '<li><span>Each order</span><b>' + S.base + ' − ' + S.perMeter + ' × meters</b></li>' +
+      '<li><span>Fast hand-in (first few teams)</span><b>+' + S.speedBonus + '</b></li>' +
+      '<li><span>Perfect route (shortest your store allows)</span><b>+' + S.perfectBonus + '</b></li>' +
+      (R.bounty ? '<li><span>Beat the leader on an order</span><b>+' + R.bounty + '</b></li>' : '') +
+      '</ul><p class="note">Tie? The team that walked less in total wins.</p>');
+    if (R.bounty) out += rsec('🎯', 'Bounty on the leader', '<p>The team in <b>1st place</b> when an order starts carries a bounty. Every team that beats the leader\'s score on that order gets <b>+' + R.bounty + '</b>' +
+      (R.bountyCounts === false ? ' as a badge of honour (it does not change the ranking)' : '') + '. Your phone shows who the leader is when the order starts.</p>');
+    out += rsec('🎖️', 'Corps ranks', '<p>As your points grow, your phone promotes your team through the ranks of the Demon Slayer Corps:</p><p class="ranks">' +
+      RANKS.map(function (r, i) { return '<span' + (i === RANKS.length - 1 ? ' class="h"' : '') + '>' + r + '</span>'; }).join('') + '</p>');
+    out += rsec('🌪️', 'Surprises', rlist(['Later orders bring trouble: one-way aisles, blocked squares, two orders at once. The screen tells you what changed.',
+      'The final boss order is worth <b>double</b> points.']));
+    if (R.showdown) out += rsec('⚔️', 'Top-' + n + ' showdown', '<p>After the last order, the <b>top ' + n + '</b> teams play one extra order alone, with every step drawn live on the big screen. ' +
+      (R.showdown === 'title' ? '<b>Its result decides the title</b> and the order of the top ' + n + '.' : 'Its points add to your total.') + ' Everyone else watches.</p>', 'duelsec');
+    return out;
   }
-  // Help while the game runs: how to use the screen, how walking and points work. NO placement rules, NO penalty list.
+  // Help while the game runs: how to use the screen, walking and points. NO placement rules, NO penalty list.
   function helpHtml() {
-    return '<div class="rules">' +
-      '<h3>This screen</h3><ul><li>Round 1: tap a shelf square, choose the product, then the level. Tap a product in the list to find it or move it.</li><li>Everyone in your team can place at the same time. The layout is shared.</li><li>Orders: the pink shelves hold the items you need. The list shows the shelf and the level of each one.</li><li>Undo takes back your last tap. Clear wipes the whole route. Undo right after a Clear brings it back.</li></ul>' +
-      walkHtml() + '</div>';
+    return '<div class="rules">' + rsec('📱', 'This screen', rlist([
+      'Round 1: tap a shelf square, choose the product, then the level. Tap a product in the list to find it or move it.',
+      'Orders: the pink shelves hold the items you need. The list shows the shelf and the level of each one.',
+      'Undo takes back your last tap. Clear wipes the whole route. Undo right after a Clear brings it back.'])) + playHtml() + '</div>';
   }
   function adjHtml(adj) {
     if (!adj || !adj.length) return '';
@@ -108,6 +146,78 @@
     return '<div class="bill' + (many ? ' many' : '') + '">' + (pk ? '<span class="cnt">' + n + '/' + items.length + ' picked</span>' : '') + '<h2>' + esc(title) + '</h2><ul>' + rows + '</ul></div>';
   }
   function namesOf(list) { return list.map(function (p) { return esc(G.product(p).name); }).join(', '); }
+
+  // ------------------------------------------------------------------ corps ranks (phone only: the team's points decide them)
+  var RANKS = ['Mizunoto', 'Mizunoe', 'Kanoto', 'Kanoe', 'Tsuchinoto', 'Tsuchinoe', 'Hinoto', 'Hinoe', 'Kinoto', 'Kinoe', 'Hashira'];
+  var RANK_AT = [0, .03, .07, .12, .18, .25, .33, .42, .52, .63, .76];    // share of "about 100 points per order"
+  var rankSeen = -1;                                                      // the rank this phone has shown (promotions wait for the reveal)
+  function rankSteps(v) {
+    var n = (v && v.rules && v.rules.orders) || (v && v.roundCount) || 10;
+    return RANK_AT.map(function (f) { return Math.round(f * n * 100); });
+  }
+  function rankOf(v) { var s = rankSteps(v), p = v.team.pts, i = 0; while (i + 1 < s.length && p >= s[i + 1]) i++; return i; }
+  function shownRank(v) { var i = rankOf(v); return rankSeen >= 0 ? Math.min(rankSeen, i) : i; }
+  function rankHtml(v) {
+    var s = rankSteps(v), i = shownRank(v), top = i === RANKS.length - 1, p = v.team.pts;
+    var pct = top ? 100 : Math.max(0, Math.min(100, Math.round((p - s[i]) / Math.max(1, s[i + 1] - s[i]) * 100)));
+    return '<div class="rank' + (top ? ' hashira' : '') + '"><span class="rank-k">Corps rank ' + (i + 1) + ' of ' + RANKS.length + '</span><b>' + RANKS[i] + '</b>' +
+      '<div class="rank-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<span class="rank-n">' + (top ? 'The highest rank in the corps.' : Math.max(1, s[i + 1] - p) + ' more points to ' + RANKS[i + 1]) + '</span></div>';
+  }
+  function checkRank(v) {
+    if (!me || !v || !v.team) return;
+    var i = rankOf(v), s = rankStore.get(), was = s && s.k === me.k && typeof s.i === 'number' ? s.i : -1;
+    if (was < 0 || i < was) { rankStore.set({ k: me.k, i: i }); rankSeen = i; return; }     // first view, or points went down: no fuss
+    rankSeen = was;
+    if (i === was || v.phase === 'order' || v.phase === 'layout' || v.phase === 'lobby') return;   // promotions wait until the order is over
+    rankStore.set({ k: me.k, i: i }); rankSeen = i;
+    promote(i);
+  }
+  function promote(i) {
+    var box = $('promo'), top = i === RANKS.length - 1, pips = '', j;
+    for (j = 0; j < RANKS.length; j++) pips += '<i class="' + (j < i ? 'on' : j === i ? 'now' : '') + '"></i>';
+    box.innerHTML = '<div class="promo-in"><p class="promo-k">' + (top ? 'Hashira!' : 'Promoted') + '</p><p class="promo-r">' + RANKS[i] + '</p>' +
+      '<p class="promo-s">' + (top ? 'Your team reached the highest rank of the Demon Slayer Corps.' : 'Rank ' + (i + 1) + ' of ' + RANKS.length + ' in the Demon Slayer Corps') + '</p>' +
+      '<div class="promo-pips">' + pips + '</div><p class="promo-t">Tap to continue</p></div>';
+    box.className = 'promo' + (top ? ' hashira' : '');
+    box.hidden = false;
+    K.sound(top ? 'fanfare' : 'done');
+    K.vibrate(top ? [100, 60, 100, 60, 300] : [80, 50, 120]);
+    K.confetti({ count: top ? 220 : 80, ms: top ? 3600 : 2200 });
+    clearTimeout(promoT);
+    promoT = setTimeout(hidePromo, top ? 5200 : 3400);
+  }
+  function hidePromo() { clearTimeout(promoT); var b = $('promo'); if (b) b.hidden = true; }
+
+  // ------------------------------------------------------------------ bounty + showdown
+  function huntHtml(v) {
+    var H = v.hunt, R = v.round, pts = v.rules && v.rules.bounty;
+    if (!H || !R || R.showdown || !pts) return '';
+    return '<div class="hunt' + (H.me ? ' me' : '') + '"><b>🎯</b><span>' + (H.me ? '<b>Bounty on you!</b> Every team that beats your score on this order gets +' + pts + '.'
+      : 'Bounty on <b>' + esc(H.target) + '</b>. Beat their score on this order: <b>+' + pts + '</b>') + '</span></div>';
+  }
+  function duelWatchHtml(v) {
+    var names = (v.duel && v.duel.names) || [];
+    return '<div class="card dark duelwatch a-pop"><p class="dw-k">⚔️ Showdown</p><h2>The top ' + names.length + ' are racing</h2><ol class="dw-list">' +
+      names.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ol><p>Every step they take is drawn live on the big screen. Look up!</p></div>';
+  }
+  function orderToast(v) {
+    if (v.round && v.round.showdown && v.duel && v.duel.in) K.toast('⚔️ You made the top ' + v.duel.names.length + '! Every step you take is live on the big screen.', 'ok');
+    else if (v.hunt && v.hunt.me) K.toast('🎯 You lead. Every team is hunting you this order!', 'bad');
+  }
+  // Showdown: the route being walked goes to the server (a few times a second at most) so the big screens draw it live.
+  function pushTrace() {
+    if (traceT) return;
+    traceT = setTimeout(function () {
+      traceT = 0;
+      var v = V;
+      if (!conn || !v || v.phase !== 'order' || !v.round || !v.round.showdown || !v.duel || !v.duel.in || v.mine || !D || D.id !== v.round.id) return;
+      var rt = D.r.a, sig = v.round.id + ':' + rt.join(',');
+      if (sig === traceSig && Date.now() - traceAt < 4000) return;
+      traceSig = sig; traceAt = Date.now();
+      conn.send({ a: 'trace', round: v.round.id, route: rt }).then(function (r) { if (r && r.net) traceSig = ''; });
+    }, 150);
+  }
 
   // ------------------------------------------------------------------ keep the phone awake
   // Screen Wake Lock: while this phone is in a team and the page is showing, the screen must not dim or lock (teams
@@ -139,6 +249,7 @@
   function showJoin(note) {
     if (conn) { conn.close(); conn = null; }
     V = null; me = null; D = null; pend = []; sending = false;
+    hidePromo();
     wakeSync();
     ui.sheet = null; ui.sel = null; renderSheet();
     demoOn(false); drop3d();
@@ -174,6 +285,7 @@
   // ------------------------------------------------------------------ connection
   function start(m) {
     me = m; V = null; cache = {}; scShown = null; boardSig = ''; rvKey = ''; finalFx = false; lastRouteSig = null; lastCtx = '';
+    rankSeen = -1; traceSig = '';
     $('board').innerHTML = '';
     show('join', false); show('app', false); show('wait', true);
     $('wait').textContent = 'Connecting…';
@@ -203,6 +315,7 @@
     var prev = V;
     V = v;
     changes(prev, v);
+    checkRank(v);
     if (!prev) { show('wait', false); show('app', true); }
     render();
   }
@@ -223,7 +336,7 @@
     }
     if (v.phase !== 'final') { finalFx = false; finalWin = false; }
     if (!prev) return;
-    if (v.phase === 'order' && (pr !== 'order' || rid !== prid)) { K.vibrate([150, 70, 150]); K.sound(v.round && v.round.crisis ? 'buzzer' : 'pop'); }
+    if (v.phase === 'order' && (pr !== 'order' || rid !== prid)) { K.vibrate([150, 70, 150]); K.sound(v.round && v.round.crisis ? 'buzzer' : 'pop'); orderToast(v); }
     else if (v.phase === 'reveal' && pr === 'order') { K.sound('buzzer'); K.vibrate(250); }
     else if (v.phase === 'locked' && pr === 'layout') { K.sound('buzzer'); K.vibrate(250); }
     else if (v.phase === 'layout' && pr === 'lobby') { K.sound('pop'); K.vibrate(150); }
@@ -280,6 +393,10 @@
     if (lobbyish) scShown = null;
     else if (scShown === null) { sc._kitNum = v.team.pts; sc.textContent = v.team.pts + ' pts'; scShown = v.team.pts; }
     else if (scShown !== v.team.pts) { scShown = v.team.pts; K.countUp(sc, v.team.pts, { suffix: ' pts', ms: 900 }); }
+    var rk = $('rk'), ri = shownRank(v), rn = lobbyish ? '' : '🎖 ' + RANKS[ri], rcl = 'rk' + (ri === RANKS.length - 1 ? ' hashira' : '');
+    rk.hidden = lobbyish;
+    if (rk.textContent !== rn) rk.textContent = rn;
+    if (rk.className !== rcl) rk.className = rcl;
     var q = $('qBtn'), qt = v.phase === 'lobby' ? 'Rules' : 'Help';
     if (q.textContent !== qt) q.textContent = qt;
     var pz = v.pausedLeft > 0;
@@ -426,7 +543,7 @@
                    : '<p>No penalties. Clean layout.</p>';
     if (miss.length) h += '<p class="alert">Not stocked: ' + miss.map(function (p) { return p.emoji + ' ' + esc(p.name); }).join(', ') + '. Any order with these scores 0.</p>';
     h += adjHtml(v.team.adj) + '<p>Orders are next. Watch the big screen.</p></div>';
-    out.head = h;
+    out.head = h + rankHtml(v);
     out.cap = '<p class="tip">This is your store. Tap a shelf to see what is on it.' + (pl.length ? ' Squares with a pink ! got a penalty.' : '') + '</p>';
     out.map = { layout: L, rule: null, items: [], route: null, ghost: null, edit: false, sel: null, warn: warnCells(L) };
   }
@@ -434,11 +551,13 @@
   // ------------------------------------------------------------------ orders
   function kickHtml(v, R, extra) {
     return '<p class="kick">' + esc(R.label) + (extra || '') + (R.mult > 1 ? ' <span class="dbl">' + (R.mult === 2 ? 'DOUBLE' : 'x' + R.mult) + ' POINTS</span>' : '') +
+      (R.showdown ? ' <span class="dbl duel">⚔️ TOP ' + ((v.rules && v.rules.duelSize) || 4) + '</span>' : '') +
       '<span class="sub">' + esc(R.title || '') + '</span></p>';
   }
   function crisisHtml(R) { return R.crisis ? '<div class="alert crisis a-shake" role="alert">⚠️ ' + esc(R.crisis) + '</div>' : ''; }
-  function badgesHtml(m) {
+  function badgesHtml(m, bty) {
     var b = '';
+    if (bty) b += '<span class="badge bty">🎯 Bounty +' + bty + '</span>';
     if (m.bonus) b += '<span class="badge">⚡ Fast hand-in +' + m.bonus + '</span>';
     if (m.perfect) b += '<span class="badge">⭐ Perfect route +' + m.perfect + '</span>';
     return b ? '<div class="badges">' + b + '</div>' : '';
@@ -447,7 +566,8 @@
   function orderParts(v, out) {
     var R = v.round, L = v.team.layout, m = v.mine, mult = R.mult || 1, all = R.double ? R.a.concat(R.b) : R.items;
     out.crisis = crisisHtml(R);
-    var h = kickHtml(v, R);
+    if (R.showdown && !(v.duel && v.duel.in)) { out.head = kickHtml(v, R) + duelWatchHtml(v); lastCtx = ''; return; }    // the others watch
+    var h = kickHtml(v, R) + huntHtml(v) + (R.showdown && !m ? '<p class="live-note">Live · every step you take is on the big screen</p>' : '');
     out.map = { layout: L, rule: R, ghost: null, edit: false, sel: null, warn: null };
 
     if (m) {                                                     // handed in (by this phone or a teammate's)
@@ -509,6 +629,7 @@
     }
     out.head = h;
     out.map.items = items; out.map.route = route; out.jump = jump;
+    if (R.showdown) pushTrace();
 
     // bottom bar
     var anyDone = done.a || done.b || done.c, now = 0, sub;
@@ -522,7 +643,9 @@
       canUndo: (route.length > 1 || !!(d.cleared && d.cleared.key === key)) && !miss.length, canHand: anyDone, ready: done[key] };
   }
   function walkTo(id) {
-    var v = V, R = v.round, L = v.team.layout, d = draftFor(R, L);
+    var v = V, R = v.round, L = v.team.layout;
+    if (R.showdown && !(v.duel && v.duel.in)) return;
+    var d = draftFor(R, L);
     if (R.double && !d.mode) return K.toast('Choose Plan A or Plan B first.');
     var key = curKey(R, d), items = curItems(R, d), was, x;
     if (G.missing(items, L).length) return K.toast('This one cannot be delivered: an item was never stocked.', 'bad');
@@ -583,7 +706,7 @@
     sending = true; armed = false;
     render();
     conn.send(body).then(function (r) {
-      if (r.ok) { K.sound('done'); K.vibrate([60, 40, 60]); }
+      if (r.ok) { K.sound('done'); K.vibrate([60, 40, 60]); K.confetti({ count: 40, ms: 1500 }); }
       else if (!r.gone) {
         K.toast(r.net ? 'No connection: your route was NOT handed in. Tap Hand in again.' : r.err, 'bad');
         K.sound('error');
@@ -609,24 +732,32 @@
 
   // ------------------------------------------------------------------ reveal + final
   function revealParts(v, out) {
-    var R = v.round, m = v.mine, b = v.best, st = v.stats, h, tot = m ? m.score + m.bonus + m.perfect : 0;
+    var R = v.round, m = v.mine, b = v.best, st = v.stats, h, got = (v.hunt && v.hunt.got) || 0, counts = !(v.rules && v.rules.bountyCounts === false);
+    var tot = m ? m.score + m.bonus + m.perfect + (counts ? got : 0) : 0;
     out.crisis = '';
+    if (R.showdown && !(v.duel && v.duel.in)) {
+      out.head = kickHtml(v, R, ' result') + '<div class="card dark duelwatch"><p class="dw-k">⚔️ Showdown over</p><h2>' +
+        (v.rules && v.rules.showdown === 'title' ? 'The title is decided' : 'The points are in') + '</h2><p>Watch the big screen for the best run.</p></div>' + rankHtml(v);
+      return;
+    }
     h = kickHtml(v, R, ' result') + '<div class="card result"><p class="num"><span id="rvNum">' + tot + '</span> <small>pts</small></p>';
     if (m) {
-      h += badgesHtml(m);
+      h += badgesHtml(m, got);
       if (!R.double) {
         h += '<p>You walked ' + m.meters + ' m. ' + (b ? (m.meters <= b.meters ? 'That is the shortest route possible with your layout.' : 'Shortest possible with your layout: ' + b.meters + ' m.') : '') + '</p>';
       } else {
         h += '<p>You walked ' + m.meters + ' m on ' + planName(m.mode) + (m.mode === 'A' && (!m.route || !m.route2) ? ', but only one trip was handed in' : '') + '.</p>';
         if (b) h += '<p class="bestline">' + (m.score >= b.score ? 'That is the best score possible with your layout.' : 'Best possible with your layout: ' + b.score + ' points on ' + planName(b.mode) + ', ' + b.meters + ' m.') + '</p>';
       }
-      if (m.bonus || m.perfect || R.mult > 1) h += '<p class="tip">' + m.score + ' for the route' + (R.mult > 1 ? ' (double points)' : '') + (m.bonus ? ' + ' + m.bonus + ' fast hand-in' : '') + (m.perfect ? ' + ' + m.perfect + ' perfect route' : '') + '.</p>';
+      if (m.bonus || m.perfect || got || R.mult > 1) h += '<p class="tip">' + m.score + ' for the route' + (R.mult > 1 ? ' (double points)' : '') + (m.bonus ? ' + ' + m.bonus + ' fast hand-in' : '') +
+        (m.perfect ? ' + ' + m.perfect + ' perfect route' : '') + (got ? ' + ' + got + ' bounty' + (counts ? '' : ' (badge only)') : '') + '.</p>';
     } else {
       h += '<p>' + (b ? 'Nothing was handed in before the buzzer.' : 'You could not deliver this one. An item was never stocked.') + '</p>';
       if (b) h += '<p class="bestline">Shortest possible with your layout: ' + b.meters + ' m, worth ' + b.score + ' points' + (b.mode ? ' on ' + planName(b.mode) : '') + '.</p>';
     }
+    if (v.hunt && v.hunt.me) h += '<p class="tip">🎯 You carried the bounty on this order.</p>';
     if (v.team.rank) h += '<p><b>Your team is #' + v.team.rank + ' of ' + v.teamCount + '</b> with ' + v.team.pts + ' points.</p>';
-    out.head = h + '</div>';
+    out.head = h + '</div>' + rankHtml(v);
     out.cap = '<p class="cap">' + (m ? '<span><i class="ky"></i>Solid: your route</span>' : '') + (b && b.path && b.path2 ? '<span class="cap2d"><i class="ky g"></i>Shortest trip 1</span><span class="cap2d"><i class="ky g2"></i>Shortest trip 2</span><span class="cap3d"><i class="ky g"></i>Dashed: shortest possible, both trips</span>'
         : b ? '<span><i class="ky g"></i>Dashed: shortest possible</span>' : '') +
       (m ? '<button type="button" class="link" data-act="again">Watch again</button>' : '') + '</p>';
@@ -643,7 +774,7 @@
   function drop3d() {
     if (map3d) { try { map3d.destroy(); } catch (e) {} map3d = null; }
     var w = $('mapWrap');
-    show('map3dBox', false); show('mapBox', true); show('legend', true);
+    show('map3dBox', false); show('mapBox', true);
     if (w) w.classList.remove('is3d');
   }
   function want3d() {
@@ -662,7 +793,7 @@
       } });
     } catch (e) { map3d = null; }
     if (!map3d) { drop3d(); return false; }
-    show('mapBox', false); show('legend', false);
+    show('mapBox', false);
     $('mapWrap').classList.add('is3d');
     return true;
   }
@@ -702,7 +833,7 @@
       (secret ? '<p class="num top3">TOP 3</p><p><b>Your team is on the podium!</b> Watch the big screen to see which place.</p>'
               : pos ? '<p class="num">#' + pos + '</p><p>of ' + plural(v.teamCount, 'team', 'teams') + '</p>' : '') +
       '<p><b>' + t.pts + ' points</b>, ' + t.meters + ' m walked' + (t.pen ? ', −' + t.pen + ' layout penalties' : '') + '.</p>' +
-      (pos && pos <= 3 ? '<p class="badges"><span class="badge">🏆 Top 3. Well played!</span></p>' : '') + adjHtml(t.adj) + '</div>';
+      (pos && pos <= 3 ? '<p class="badges"><span class="badge">🏆 Top 3. Well played!</span></p>' : '') + adjHtml(t.adj) + '</div>' + rankHtml(v);
     out.pos = pos;
   }
   function renderBoard(v) {
@@ -760,8 +891,11 @@
     renderTop(v);
 
     if (ph === 'lobby') {
-      out.head = newTeamHtml(v) + '<div class="card"><h2>You are in</h2><p class="dev">📱 ' + plural(v.team.devices || 1, 'phone', 'phones') + ' connected for <b>' + esc(v.team.name) + '</b>.</p>' +
-        '<p>Teammates join on their own phones with the same team name and the same PIN. ' + plural(v.teamCount, 'team is', 'teams are') + ' in so far.</p><p class="waitbuzz">Waiting for the organiser to start</p></div>';
+      out.head = newTeamHtml(v) + '<div class="card dark inlobby"><p class="inl-k">You are in</p><h2>' + esc(v.team.name) + '</h2>' +
+        '<div class="inl-row"><span>📱 <b>' + (v.team.devices || 1) + '</b> ' + ((v.team.devices || 1) === 1 ? 'phone' : 'phones') + '</span>' +
+        '<span>👥 <b>' + v.teamCount + '</b> ' + (v.teamCount === 1 ? 'team' : 'teams') + ' in</span></div>' +
+        '<p class="tip">Teammates join on their own phones with the same team name and PIN.</p><p class="waitbuzz">Waiting for the organiser to start</p></div>' +
+        '<p class="readme">📖 Read the rules below while you wait. They disappear when Round 1 starts.</p>';
     } else if (ph === 'layout') layoutParts(v, out);
     else if (ph === 'locked') lockedParts(v, out);
     else if (ph === 'order' && v.round) orderParts(v, out);
@@ -793,11 +927,13 @@
         if (out.rv !== rvKey) { rvKey = out.rv; runReveal(); }
       }
     } else { rvTok++; rvKey = ''; rvCounted = ''; drop3d(); }
+    show('legend', !!out.map && !map3d && (ph === 'layout' || ph === 'locked'));     // the colour key only matters while stocking
 
     if (ph === 'reveal' && headNew && rvCounted !== out.rv) {     // roll the points up once per result
       rvCounted = out.rv;
       var n = $('rvNum');
       if (n && out.rvTot) K.countUp(n, out.rvTot, { from: 0, ms: 1100 });
+      if (v.mine && v.mine.perfect) setTimeout(function () { K.confetti({ count: 70, ms: 2000 }); }, 700);
     }
     if (ph === 'final') {
       if (!finalFx) { finalFx = true; if (!(out.pos && out.pos <= 3)) K.sound('done'); }
@@ -810,6 +946,7 @@
   // ------------------------------------------------------------------ taps
   function onAct(act, el) {
     var v = V, p, d, R;
+    if (act === 'promo') { hidePromo(); return; }
     if (act === 'rules') { ui.sheet = ui.sheet === 'rules' ? null : 'rules'; if (ui.sheet) ui.sel = null; render(); if (!v) renderSheet(); return; }
     if (act === 'close') { ui.sheet = null; ui.sel = null; ui.pick = null; render(); return; }
     if (act === 'mute') { K.mute(!K.mute()); if (!K.mute()) K.sound('pop'); renderSheet(); return; }

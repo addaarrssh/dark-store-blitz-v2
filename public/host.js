@@ -150,6 +150,7 @@
     if (v.phase !== 'reveal' && spotMap && spotSig !== null) { spotRun++; spotSig = null; spotMap.update({ route: null, ghost: null }); }
     PHASES.forEach(function (p) { show($('s-' + p), p === v.phase); });
     if (v.phase !== 'lobby') show($('rules'), false);         // the rules are only on the wall before Round 1 starts
+    if (v.phase !== 'order' && duelSig) dropDuel();           // the live showdown maps go when the order closes
 
     renderTop(v);
     renderDock(v);
@@ -224,8 +225,8 @@
     return null;
   }
   // Upcoming surprise rounds keep their name secret on the projector.
-  function publicLabel(v, i) { var r = v.rounds[i]; return r.stage === 3 ? 'Surprise round' : r.label; }
-  function startName(v, i) { var r = v.rounds[i]; return r.stage === 3 ? 'the surprise round' : r.label; }
+  function publicLabel(v, i) { var r = v.rounds[i]; return r.showdown ? '⚔️ Top-4 Showdown' : r.stage === 3 ? 'Surprise round' : r.label; }
+  function startName(v, i) { var r = v.rounds[i]; return r.showdown ? 'the Top-4 Showdown' : r.stage === 3 ? 'the surprise round' : r.label; }
   function podiumPlaces(v) { return Math.min(3, v.board.length); }
 
   function renderDock(v) {
@@ -463,9 +464,45 @@
   window.addEventListener('resize', function () { if (V && V.phase === 'order') fitTicket(); });
   // the room for the ticket also changes without a new view (the "no connection" bar comes and goes): fit again then
   if (window.ResizeObserver) { try { new ResizeObserver(function () { if (V && V.phase === 'order') fitTicket(); }).observe($('ticket').parentNode); } catch (e) {} }
+  // ------------------------------------------------------------------ SHOWDOWN: the top four, live, one small map each
+  var DUEL_COL = ['#FF2D87', '#2B4BFF', '#00A859', '#8A2BE2'], duelMaps = {}, duelSig = '';
+  function dropDuel() {
+    for (var k in duelMaps) if (Object.prototype.hasOwnProperty.call(duelMaps, k)) { try { duelMaps[k].map.destroy(); } catch (e) {} }
+    duelMaps = {}; duelSig = '';
+    var g = $('duelGrid');
+    if (g) g.innerHTML = '';
+  }
+  function renderDuel(v, R) {
+    var teams = v.duel.teams || [], items = R.items || [], grid = $('duelGrid'), sig = R.id + '|' + teams.map(function (t) { return t.id; }).join(',');
+    put($('duelItems'), '<span class="dk-l">⚔️ ' + esc(R.title) + '</span>' + items.map(function (p) {
+      var pr = Game.product(p);
+      return pr ? '<span class="di">' + pr.emoji + ' ' + esc(pr.name) + '</span>' : '';
+    }).join(''));
+    if (sig !== duelSig) {
+      dropDuel(); duelSig = sig;
+      grid.innerHTML = teams.map(function (t, i) {
+        return '<div class="dl" style="--c:' + DUEL_COL[i % DUEL_COL.length] + '"><div class="dl-h"><span class="dl-n">' + (i + 1) + '</span><b>' + esc(t.name) + '</b><em></em></div><div class="dl-m"></div></div>';
+      }).join('');
+      var boxes = grid.querySelectorAll('.dl');
+      teams.forEach(function (t, i) { duelMaps[t.id] = { map: Kit.createMap(boxes[i].querySelector('.dl-m'), {}), el: boxes[i], sig: '' }; });
+    }
+    teams.forEach(function (t) {
+      var d = duelMaps[t.id];
+      if (!d) return;
+      var rt = t.route && t.route.length ? t.route : [Game.START], rs = rt.join(','), L = t.layout || {};
+      if (d.sig !== rs) { d.sig = rs; d.map.update({ layout: L, rule: R, items: items, route: rt }); }      // a longer route: the picker walks it
+      var pk = Game.pickedOf(rt, items, L, R), n = 0, p;
+      for (p in pk) if (Object.prototype.hasOwnProperty.call(pk, p)) n++;
+      txt(d.el.querySelector('.dl-h em'), t.done ? '✓ ' + t.meters + ' m · ' + t.pts + ' pts' : (rt.length - 1) + ' m · ' + n + '/' + items.length);
+      d.el.classList.toggle('done', !!t.done);
+    });
+  }
   function renderOrder(v, fresh) {
     var R = v.round;
     if (!R) return;
+    var duelOn = !!(R.showdown && v.duel);
+    show($('ordRow'), !duelOn); show($('duelBox'), duelOn);
+    if (duelOn) renderDuel(v, R); else if (duelSig) dropDuel();
     var hasMap = !!(R.oneWay || (R.blocked && R.blocked.length)), small = hasMap;
     var c = $('crisis');
     if (R.crisis) {
@@ -490,12 +527,15 @@
       txt($('ordMapCap'), cap.join('  ·  '));
     }
     txt($('ordNote'), clockNote(v));
+    var oh = $('ordHunt');
+    if (v.hunt && !R.showdown) { put(oh, '🎯 Bounty on <b>' + esc(v.hunt.target) + '</b>: beat their score on this order for +' + v.hunt.pts); show(oh, true); }
+    else show(oh, false);
     fitTicket();
 
     // progress + ticker of the latest hand-ins
-    var n = v.teams.length, sub = v.stats.submitted, i, t, added = 0;
-    put($('ordProgTxt'), '<b>' + sub + '</b> of ' + n + ' handed in');
-    var w = (n ? Math.min(100, sub / n * 100) : 0).toFixed(1) + '%', bar = $('ordBar');
+    var n = v.teams.length, nOf = duelOn ? v.duel.teams.length : n, sub = v.stats.submitted, i, t, added = 0;
+    put($('ordProgTxt'), '<b>' + sub + '</b> of ' + nOf + ' handed in');
+    var w = (nOf ? Math.min(100, sub / nOf * 100) : 0).toFixed(1) + '%', bar = $('ordBar');
     if (bar._w !== w) { bar._w = w; bar.style.width = w; }
     var silent = tick.round !== R.id || fresh && !tick.list.length && sub > 3;
     if (tick.round !== R.id) { tick = { round: R.id, seen: {}, list: [], n: 0 }; }
@@ -504,13 +544,13 @@
       t = v.teams[i];
       if (!t.res) continue;
       now[t.id] = 1;
-      if (!tick.seen[t.id] && !silent) { tick.list.unshift({ k: ++tick.n, name: t.name, bonus: t.res.bonus > 0 }); added++; }
+      if (!tick.seen[t.id] && !silent) { tick.list.unshift({ k: ++tick.n, name: t.name, bonus: t.res.bonus > 0, beat: !!(t.res.at && v.endsAt > 0 && v.endsAt - t.res.at <= 3000) }); added++; }
     }
     tick.seen = now;
     if (tick.list.length > 6) tick.list.length = 6;
     var newest = tick.n - added;
     put($('ticker'), tick.list.map(function (x) {
-      return '<li' + (x.k > newest ? ' class="a-rise"' : '') + '><span>✅ ' + esc(x.name) + '</span><em>' + (x.bonus ? '⚡ speed bonus' : 'handed in') + '</em></li>';
+      return '<li' + (x.k > newest ? ' class="a-rise"' : '') + (x.beat ? ' data-beat="1"' : '') + '><span>✅ ' + esc(x.name) + '</span><em>' + (x.beat ? '⏱ buzzer beater' : x.bonus ? '⚡ speed bonus' : 'handed in') + '</em></li>';
     }).join(''));
     if (added) Kit.sound('pop');
   }
@@ -593,6 +633,11 @@
       '<div class="stat"><b>' + v.stats.perfect + '</b><span>perfect routes: the shortest their own store allows</span></div>' +
       '<div class="stat pink"><b>' + (best === null ? '–' : best + '<small> m</small>') + '</b><span>' +
         (best === null ? 'shortest walk' : 'shortest walk' + (cnt === 1 ? ': ' + esc(who) : ' (' + cnt + ' teams)')) + '</span></div>');
+    var rh = $('revHunt'), H = v.hunt;
+    if (H && !R.showdown) {
+      put(rh, '🎯 Bounty on <b>' + esc(H.target) + '</b>: ' + (H.n ? many(H.n, 'team') + ' beat the leader for +' + H.pts + (H.counts === false ? ' (badge)' : '') : 'nobody beat the leader this time'));
+      show(rh, true);
+    } else show(rh, false);
     renderBoard(v, fresh);
     playSpot(v, fresh);
   }
@@ -617,7 +662,10 @@
       put($('podium'), h);
       ui.justShown = 0;
     }
-    txt($('finHead'), 'Full ranking · ' + many(v.board.length, 'team'));
+    var dr = null;
+    v.rounds.forEach(function (r) { if (r.showdown) dr = r; });
+    var byDuel = !!(dr && v.rules && v.rules.showdown === 'title' && v.done.indexOf(dr.id) >= 0);
+    txt($('finHead'), 'Full ranking · ' + many(v.board.length, 'team') + (byDuel ? ' · top 4 set by the showdown' : ''));
     var rows = '', i, t2, masked;
     for (i = 0; i < v.board.length; i++) {
       t2 = v.board[i]; masked = i < 3 && !open(i + 1);
@@ -650,7 +698,7 @@
     return Game.PRODUCTS.filter(function (p) { return p.tag === tag; }).map(function (p) { return p.name; }).join(', ');
   }
   function rulesHtml() {
-    var P = Game.PENALTY, S = Game.SCORE;
+    var P = Game.PENALTY, S = Game.SCORE, X = (V && V.rules) || {};
     function rule(icon, head, text, pts, each) {
       return '<li><i>' + icon + '</i><span><b>' + head + '</b><small>' + esc(text) + '</small></span><em>−' + pts + (each ? '<small>each</small>' : '') + '</em></li>';
     }
@@ -668,6 +716,8 @@
       line('⚡', '<b>+' + S.speedBonus + '</b> speed bonus for the first teams to hand in.') +
       line('⭐', '<b>+' + S.perfectBonus + '</b> for the shortest route your own store allows.') +
       line('🚫', 'Not handed in, or a product is not on a shelf = <b>0</b> for that order.') +
+      (X.bounty ? line('🎯', 'Beat the leader\'s score on an order: <b>+' + X.bounty + '</b> bounty.') : '') +
+      (X.showdown ? line('⚔️', 'The top four play a last order live' + (X.showdown === 'title' ? ': it <b>decides the title</b>.' : '.')) : '') +
       line('🏆', 'Most points wins. On a tie: the team that walked less.') +
       '</ul><p class="rnote">Tip: what sells most should be closest to START.</p></div>';
   }
@@ -680,7 +730,7 @@
       var secret = r.stage === 3 && !done && !cur;
       h += '<button type="button" class="rp' + (cur ? ' cur' : done ? ' done' : '') + (r.stage === 3 ? ' s3' : '') + '" data-act="jump" data-v="' + i + '"' + (started ? '' : ' disabled') +
         ' title="' + esc((started ? 'Start ' : 'Lock the layouts first. ') + r.label + ': ' + r.title + (done ? ' (already played)' : '')) + '">' +
-        esc(secret ? 'Surprise ' + (i + 1) : r.label) + (done && !cur ? ' ✓' : '') + '</button>';
+        esc(secret ? (r.showdown ? 'Showdown' : 'Surprise ' + (i + 1)) : r.label) + (done && !cur ? ' ✓' : '') + '</button>';
     });
     h += '<button type="button" class="rp fin" data-act="final"' + (started && v.phase !== 'final' ? '' : ' disabled') + ' title="End the game and open the podium">🏁 Final results</button>';
     put($('drRounds'), h);
@@ -802,7 +852,8 @@
       var i = nextIndex(V), from = V.phase;
       if (i == null) return goFinal();
       var name = startName(V, i);
-      ask({ title: 'Start ' + name + '?', text: 'The clock starts on every phone straight away.' + (from === 'locked' ? ' After this, layouts can never be reopened.' : ''), ok: 'Start ' + name, cancel: 'Not yet' })
+      var four = V.rounds[i].showdown ? ' Only the top four play: ' + V.board.slice(0, 4).map(function (b) { return b.name; }).join(', ') + '.' : '';
+      ask({ title: 'Start ' + name + '?', text: 'The clock starts on every phone straight away.' + four + (from === 'locked' ? ' After this, layouts can never be reopened.' : ''), ok: 'Start ' + name, cancel: 'Not yet' })
         .then(function (yes) {
           if (!yes || !V) return;
           // the game moved on while the box was open (another organiser screen): do not start anything on top of it
@@ -811,7 +862,7 @@
         });
     },
     end: function () {
-      var left = V.stats.teams - V.stats.submitted;
+      var left = (V.duel ? V.duel.teams.length : V.stats.teams) - V.stats.submitted;
       ask({ title: 'End this order now?', text: left > 0 ? many(left, 'team has', 'teams have') + ' not handed in yet and will get 0 for this order.' : 'Every team has handed in.', ok: 'End the order' })
         .then(function (yes) { if (yes) send({ a: 'hend' }); });
     },

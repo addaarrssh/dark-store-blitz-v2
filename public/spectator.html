@@ -361,6 +361,33 @@ body.replay #lbT{height:5vh} body.replay #lbB{height:4.4vh}
   #tape{height:3.2vh} #shot{display:none}
   #conn{width:92vw}
 }
+/* ===== buzzer beaters, photo finishes, bounty, live showdown ===== */
+#bb{left:50%;top:34vh;transform:translateX(-50%);opacity:0;text-align:center;pointer-events:none;z-index:7}
+#bb small{display:inline-block;font:800 2.6vh/1 var(--disp);letter-spacing:.42em;color:#000;background:var(--rush);padding:.8vh 1.4vw;clip-path:polygon(1.4vh 0,100% 0,calc(100% - 1.4vh) 100%,0 100%)}
+#bb b{display:block;margin-top:1vh;font:400 8.5vh/1.05 var(--jp);text-transform:uppercase;background:var(--gold);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(.5vh .5vh 0 #000);white-space:nowrap}
+#bb span{display:block;margin-top:.8vh;font:800 2.4vh/1 var(--disp);color:#fff;letter-spacing:.14em;text-transform:uppercase}
+#bb.show{animation:bb 2.6s cubic-bezier(.2,.9,.2,1) forwards}
+@keyframes bb{0%{opacity:0;transform:translateX(-50%) scale(2.2) rotate(-6deg)}10%{opacity:1;transform:translateX(-50%) scale(.95) rotate(1deg)}16%{transform:translateX(-50%) scale(1)}82%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) scale(1.15)}}
+#pf{left:50%;top:27vh;transform:translateX(-50%);opacity:0;min-width:46vw;background:#f6f1e4;color:#000;border:.6vh solid #000;box-shadow:1.2vh 1.2vh 0 var(--rush);padding:1.6vh 1.6vw 1.4vh;text-align:center;z-index:7}
+#pf small{display:block;font:800 2.2vh/1 var(--disp);letter-spacing:.4em;color:var(--rush)}
+#pf .pfr{display:grid;grid-template-columns:1fr auto 1fr;gap:1.2vw;align-items:center;margin-top:1.2vh}
+#pf .pfr b{font:400 4.4vh/1.05 var(--jp);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pf .pfr i{font:800 3vh/1 var(--disp);font-style:normal;background:#000;color:var(--tape);padding:.6vh .7vw}
+#pf .pfg{margin-top:1vh;font:700 2vh/1 var(--mono);letter-spacing:.06em}
+#pf.show{animation:pf 3.6s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes pf{0%{opacity:0;transform:translateX(-50%) rotate(-4deg) scale(.6)}10%{opacity:1;transform:translateX(-50%) rotate(1.5deg) scale(1.03)}16%{transform:translateX(-50%) rotate(-1deg) scale(1)}85%{opacity:1;transform:translateX(-50%) rotate(-1deg)}100%{opacity:0;transform:translateX(-50%) rotate(-1deg) translateY(-3vh)}}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+#flash.go{animation:flash .55s ease-out}
+@keyframes flash{0%{opacity:.9}100%{opacity:0}}
+.row.hunted{box-shadow:inset .5vh 0 0 var(--rush)}
+.lbl.duel{color:#fff;text-shadow:0 .2vh 0 rgba(0,0,0,.55);font-size:2vh}
+.lane{display:grid;grid-template-columns:1.2vh minmax(0,1fr) auto;gap:.6vw;align-items:center;margin-top:.7vh;padding:.8vh .7vw;background:linear-gradient(90deg,rgba(46,46,52,.85),rgba(20,20,23,.4));font:800 2.6vh/1 var(--disp);text-transform:uppercase}
+.lane i{width:1.2vh;height:3.2vh;background:var(--c)}
+.lane span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lane em{font:700 1.7vh var(--mono);font-style:normal;color:#ccc;white-space:nowrap}
+.lane.done{background:linear-gradient(90deg,rgba(53,212,154,.35),rgba(20,20,23,.4))}
+.lane.done em{color:var(--go)}
+@media (orientation:portrait){#bb{top:22vh} #bb b{font-size:4.6vh} #bb small{font-size:1.6vh} #pf{top:18vh;min-width:92vw} #pf .pfr b{font-size:2.6vh}}
 </style>
 </head>
 <body>
@@ -372,6 +399,9 @@ body.replay #lbT{height:5vh} body.replay #lbB{height:4.4vh}
 <div id="lbT" class="lb"></div><div id="lbB" class="lb"><span>◉ INSTANT REPLAY · BEST ROUTE OF THE ORDER</span></div>
 <div id="obs" class="hud"><b></b><span></span></div>
 <div id="mvp" class="hud"><small>ROUND MVP</small><b></b><span></span></div>
+<div id="bb" class="hud"><small>BUZZER BEATER</small><b></b><span></span></div>
+<div id="pf" class="hud"><small>PHOTO FINISH</small><div class="pfr"><b></b><i>VS</i><b></b></div><div class="pfg"></div></div>
+<div id="flash"></div>
 <div id="sting"><i></i><i></i><i></i></div>
 <div id="cut"></div>
 
@@ -470,7 +500,8 @@ const prod = n => PRODUCTS[n-1] || { n, name:'#'+n, emoji:'📦' };
 const RULES = [['🧊','Cold items live in J1 to J3','75 points off if not'],['🧪','Chemicals live in J8 to J10','50 points off if not'],
   ['🍞','No food in the chemical zone','50 points off'],['🌾','Heavy goes on the bottom level','30 points off if not'],
   ['🥚','Fragile never on the bottom level','30 points off'],['🥚🌾','Eggs never next to Atta','30 points off'],
-  ['🏃','Less walking, more points','150 minus 2 per meter walked']];
+  ['🏃','Less walking, more points','150 minus 2 per meter walked'],
+  ['🎯','Beat the leader on an order','15-point bounty'],['⚔️','Top four play a live showdown','after the last order']];
 const ROWS = 'ABCDEFGHIJ', START = 'A3', DIRS = [[1,0],[-1,0],[0,1],[0,-1]], CS = 4;
 function kind(r,c){
   if (r<0 || r>9 || c<1 || c>10) return 'out';
@@ -1309,6 +1340,84 @@ function updateReplay(dt){
 }
 
 /* ---------------------------------------------------------------------
+   10b. THE SHOWDOWN: the top four walk live. Each finalist's phone sends its route as the team taps and the server
+        passes it on in the host view (v.duel). Every route drawn here is a real one.
+   --------------------------------------------------------------------- */
+const DUEL_HEX = [RUSH, FRZ, GO, CHEM], DUEL_CSS = ['#FF2D87','#2F8CFF','#35D49A','#B07CFF'];
+class Trail {                                                                   // a flat coloured ribbon on the floor
+  constructor(hex, y){
+    this.n = 600; this.y = y; this.key = ''; this.pos = new Float32Array(this.n*18);
+    this.geo = new THREE.BufferGeometry(); this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos,3)); this.geo.setDrawRange(0,0);
+    this.mesh = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ color:hdr(hex,1.6), side:THREE.DoubleSide, depthWrite:false }));
+    this.mesh.frustumCulled = false; this.mesh.visible = false; scene.add(this.mesh);
+  }
+  set(pts){
+    const W = .26, Y = this.y, P = this.pos; let q = 0;
+    for (let s=0; s<pts.length-1 && q<this.n; s++){
+      const a = pts[s], b = pts[s+1], dx = b.x-a.x, dz = b.z-a.z, len = Math.hypot(dx,dz);
+      if (len < 1e-4) continue;
+      const ux = dx/len, uz = dz/len, px = -uz*W, pz = ux*W, x0 = a.x-ux*W, z0 = a.z-uz*W, x1 = b.x+ux*W, z1 = b.z+uz*W, o = q*18;
+      P[o]=x0-px; P[o+1]=Y; P[o+2]=z0-pz;   P[o+3]=x0+px; P[o+4]=Y; P[o+5]=z0+pz;   P[o+6]=x1+px; P[o+7]=Y; P[o+8]=z1+pz;
+      P[o+9]=x0-px; P[o+10]=Y; P[o+11]=z0-pz; P[o+12]=x1+px; P[o+13]=Y; P[o+14]=z1+pz; P[o+15]=x1-px; P[o+16]=Y; P[o+17]=z1-pz;
+      q++;
+    }
+    this.geo.attributes.position.needsUpdate = true; this.geo.setDrawRange(0, q*6); this.mesh.visible = q > 0;
+  }
+  hide(){ this.mesh.visible = false; this.geo.setDrawRange(0,0); this.key = ''; }
+}
+const pickedN = (layout, R, route) => { const on = new Set(route || []);
+  return itemsOf(R).filter(p => { const w = whereIs(layout || {}, p); return !!w && spots(w, R).some(s => on.has(s)); }).length; };
+const duel = { on:false, lanes:[0,1,2,3].map(i => {
+  const L = { i, id:'', name:'', actor:new Actor(['zenitsu','inosuke','giyu','rengoku'][i], 1.18), trail:new Trail(DUEL_HEX[i], .11+i*.012),
+              lab:addLabel('duel'), cells:[], pts:[], done:false, picked:0, meters:0 };
+  L.lab.e.style.background = DUEL_CSS[i];
+  return L; }) };
+function resetLane(L){ L.actor.want = 0; L.actor.path = []; L.actor.i = 0; L.trail.hide(); L.lab.on = false; L.id = ''; L.cells = []; L.pts = []; }
+function syncDuel(v){
+  const R = v.round, on = v.phase==='order' && !!(R && R.showdown && v.duel);
+  if (!on){ if (duel.on){ duel.on = false; duel.lanes.forEach(resetLane); } return; }
+  duel.on = true;
+  const teams = v.duel.teams || [];
+  duel.lanes.forEach((L,i) => {
+    const t = teams[i];
+    if (!t){ resetLane(L); return; }
+    const ox = i%2 ? .6 : -.6, oz = i<2 ? -.6 : .6, pt = id => { const q = rc(id); return new THREE.Vector3(X(q[1])+ox, 0, Z(q[0])+oz); };
+    if (L.id !== t.id){ resetLane(L); L.id = t.id; const s = pt(START); L.actor.pos.set(s.x, 0, s.z); L.actor.ang = Math.PI; }
+    L.name = t.name; L.done = !!t.done; L.actor.want = 1; L.lab.on = true;
+    const route = (Array.isArray(t.route) && t.route.length ? t.route : [START]).filter(id => !!rc(id));
+    const grows = L.cells.length <= route.length && L.cells.every((c,k) => c === route[k]);
+    if (grows && route.length > L.cells.length){                              // the team walked further: the picker follows
+      const add = route.slice(L.cells.length).map(pt);
+      L.cells = route.slice(); L.pts = L.pts.concat(add);
+      L.actor.go(L.actor.path.slice(L.actor.i).concat(add));
+    } else if (!grows){                                                       // undo or clear on the phone: jump to the new end
+      L.cells = route.slice(); L.pts = L.cells.map(pt); const e = L.pts[L.pts.length-1];
+      L.actor.pos.set(e.x, 0, e.z); L.actor.path = []; L.actor.i = 0;
+    }
+    L.meters = Math.max(0, L.cells.length-1); L.picked = pickedN(t.layout, R, L.cells);
+  });
+}
+function updateDuel(dt, T){
+  if (!duel.on && !duel.lanes.some(L => L.actor.vis > .02)) return;
+  duel.lanes.forEach(L => {
+    const a = L.actor;
+    let rem = 0, px = a.pos.x, pz = a.pos.z;
+    for (let k=a.i; k<a.path.length; k++){ rem += Math.hypot(a.path[k].x-px, a.path[k].z-pz); px = a.path[k].x; pz = a.path[k].z; }
+    a.speed = clamp(rem*1.8, 7, 40);                                          // a long tap is walked fast: the picker never lags behind the phone
+    a.jump = L.done ? Math.abs(Math.sin(T*5+L.i))*.35 : 0;
+    a.tick(dt);
+    if (!L.id || !duel.on){ L.trail.hide(); return; }
+    const remain = a.path.length-a.i, k = Math.max(1, L.pts.length-remain), key = k+':'+remain+':'+a.pos.x.toFixed(2)+','+a.pos.z.toFixed(2);
+    if (key !== L.trail.key){ L.trail.key = key; const pts = L.pts.slice(0,k); if (remain > 0) pts.push(new THREE.Vector3(a.pos.x, 0, a.pos.z)); L.trail.set(pts); }
+    L.lab.p.set(a.pos.x, 3.4, a.pos.z); setText(L.lab.e, L.name+(L.done ? ' ✓' : ''));
+  });
+}
+function pickLane(){
+  const live = duel.lanes.filter(L => L.id && !L.done), all = duel.lanes.filter(L => L.id), pool = live.length ? live : all;
+  cam.duelN = (cam.duelN|0)+1; cam.duelI = pool.length ? pool[cam.duelN % pool.length].i : 0;
+}
+
+/* ---------------------------------------------------------------------
    11. THE PODIUM (final results). Places stay secret until the organiser reveals them.
    --------------------------------------------------------------------- */
 const pod = { t:0, fw:0, peds:[] };
@@ -1350,7 +1459,7 @@ function updatePodium(dt, T){
    12. THE CAMERA DIRECTOR: it cuts between shots by itself, per phase
    --------------------------------------------------------------------- */
 const cam = { mode:'auto', shot:'', t:0, i:0, phase:'', shake:0, punch:0, sub:null, P:new THREE.Vector3(0,26,52), G:new THREE.Vector3(), dir:new THREE.Vector3(0,0,1), soft:new THREE.Vector3(0,26,52), softG:new THREE.Vector3() };
-const SHOT_NAME = { wide:'Wide', flyover:'Fly-over', push:'Push in', crane:'Crane', aisle3:'Aisle 3', aisle6:'Aisle 6', aisle9:'Aisle 9', top:'Map view', dispatch:'Dispatch', cold:'Cold room', chem:'Chemicals', sweep:'Low sweep', chase:'Chase cam', runner:'Runner cam', orbitHero:'Hero orbit', side:'Tracking', podium:'Podium' };
+const SHOT_NAME = { wide:'Wide', flyover:'Fly-over', push:'Push in', crane:'Crane', aisle3:'Aisle 3', aisle6:'Aisle 6', aisle9:'Aisle 9', top:'Map view', dispatch:'Dispatch', cold:'Cold room', chem:'Chemicals', sweep:'Low sweep', chase:'Chase cam', runner:'Runner cam', orbitHero:'Hero orbit', side:'Tracking', podium:'Podium', duel:'Showdown cam' };
 const SEQ = {                                                                // [shot, seconds]
   offline:[['wide',26],['aisle6',12],['sweep',16],['crane',14]],
   lobby:[['wide',22],['dispatch',10],['aisle6',11],['crane',14],['sweep',14]],
@@ -1358,6 +1467,7 @@ const SEQ = {                                                                // 
   locked:[['top',12],['wide',14],['sweep',12]],
   order:[['flyover',3.4],['runner',6],['top',6],['aisle6',5],['runner',6],['wide',7],['aisle3',5],['runner',6],['sweep',6],['dispatch',4],['aisle9',5]],
   final:[['podium',1e9]],
+  duel:[['top',9],['duel',5],['wide',6],['duel',5],['top',7],['duel',5],['sweep',6],['duel',5]],
 };
 function frameShot(name, t, d, dt){
   const P = cam.P, G = cam.G, u = clamp(t/d,0,1), T = S.T;
@@ -1375,6 +1485,10 @@ function frameShot(name, t, d, dt){
     case 'orbitHero':{ P.set(hero.pos.x+Math.sin(T*.8)*7.5, 3.4, hero.pos.z+Math.cos(T*.8)*7.5); P.x = clamp(P.x,-21,21); P.z = Math.max(P.z,-18); G.copy(hero.pos).setY(1.5); break; }
     case 'chase':    { V.set(Math.sin(hero.ang), 0, Math.cos(hero.ang)); cam.dir.lerp(V, 1-Math.exp(-2.4*dt)).normalize(); P.copy(hero.pos).addScaledVector(cam.dir,-9.5).setY(6.4); P.x = clamp(P.x,-20,20); P.z = Math.max(P.z,-17); G.copy(hero.pos).addScaledVector(cam.dir,3.5).setY(1.4); break; }
     case 'side':     P.set(hero.pos.x*.5+13, 8.5, hero.pos.z+15); G.copy(hero.pos).setY(1.5); break;
+    case 'duel':     { const L = duel.lanes[(cam.duelI|0) % 4], a = L && L.id ? L.actor : null;
+      if (!a){ P.set(Math.sin(T*.1)*1.2, 78, 9.5); G.set(0,0,-1.2); break; }
+      V.set(Math.sin(a.ang), 0, Math.cos(a.ang)); cam.dir.lerp(V, 1-Math.exp(-2.4*dt)).normalize();
+      P.copy(a.pos).addScaledVector(cam.dir,-8).setY(6.2); P.x = clamp(P.x,-20,20); P.z = Math.max(P.z,-17); G.copy(a.pos).addScaledVector(cam.dir,3).setY(1.4); break; }
     case 'podium':   { const R = 44-13*smooth(pod.t/12), a = Math.sin(T*.12)*.28; P.set(Math.sin(a)*R, 3.4+R*.13, 3+Math.cos(a)*R); G.set(0,4.5,3); break; }
     case 'flyover':  { const e = smooth(u); P.set(-9+18*e, 8.5-2.5*e, 27-43*e); G.set(P.x+1.5, P.y-4.5, P.z-10); break; }
     default:         { const a = -.62+1.24*u; P.set(Math.sin(a)*52, 25, 2+Math.cos(a)*52); G.set(0,1.5,-1.5); }
@@ -1388,21 +1502,21 @@ function pickShot(dt){
     const u = replay.total ? replay.dist/replay.total : 1;
     return u > .66 ? 'top' : u > .3 && u < .46 ? 'orbitHero' : replay.loop%2 ? 'side' : 'chase';
   }
-  const list = SEQ[S.phase] || SEQ.offline;
+  const list = (S.phase==='order' && duel.on ? SEQ.duel : SEQ[S.phase]) || SEQ.offline;
   if (cam.phase !== S.phase){ cam.phase = S.phase; cam.i = 0; cam.t = 0; }
   if (cam.t > list[cam.i % list.length][1]){ cam.i++; cam.t = 0; }
   return list[cam.i % list.length][0];
 }
-function shotLen(){ if (cam.mode !== 'auto') return 30; const l = SEQ[S.phase]; return l ? l[cam.i % l.length][1] : 12; }
+function shotLen(){ if (cam.mode !== 'auto') return 30; const l = S.phase==='order' && duel.on ? SEQ.duel : SEQ[S.phase]; return l ? l[cam.i % l.length][1] : 12; }
 function updateCamera(dt){
   if (cam.mode==='free'){ ceil.visible = camera.position.y < 9.5; return; }           // camera placed by hand, for checking
   cam.t += dt;
   let shot = pickShot(dt), cut = shot !== cam.shot;
   if (cam.mode !== 'auto' && cam.t > 30) cam.t = 0;
-  if (cut){ cam.shot = shot; if (shot==='runner') cam.sub = crowd.list.filter(a => a.state==='roam' && a.vis > .5).sort(() => Math.random()-.5)[0] || null; $('speed').classList.toggle('on', shot==='chase' || (shot==='runner' && !!cam.sub));
-    { const o = $('obs'), tx = shot==='runner' && cam.sub ? ['RUNNER CAM', cam.sub.L.nm || 'RUNNER'] : (shot==='chase' || shot==='orbitHero' || shot==='side') && replay.on ? ['MVP ROUTE', replay.name] : null; o.classList.toggle('on', !!tx); if (tx){ o.firstChild.textContent = tx[0]; o.lastChild.textContent = tx[1]; } } if (S.phase==='reveal' || cam.mode !== 'auto') cam.t = 0; setText($('shot'), (cam.mode==='auto' ? 'Auto camera · ' : 'Camera · ')+(SHOT_NAME[shot] || '')); const c = $('cut'); c.classList.remove('go'); void c.offsetWidth; c.classList.add('go'); }
+  if (cut){ cam.shot = shot; if (shot==='duel') pickLane(); if (shot==='runner') cam.sub = crowd.list.filter(a => a.state==='roam' && a.vis > .5).sort(() => Math.random()-.5)[0] || null; $('speed').classList.toggle('on', shot==='chase' || (shot==='runner' && !!cam.sub));
+    { const o = $('obs'), tx = shot==='duel' && duel.lanes[(cam.duelI|0) % 4].id ? ['SHOWDOWN CAM', duel.lanes[(cam.duelI|0) % 4].name] : shot==='runner' && cam.sub ? ['RUNNER CAM', cam.sub.L.nm || 'RUNNER'] : (shot==='chase' || shot==='orbitHero' || shot==='side') && replay.on ? ['MVP ROUTE', replay.name] : null; o.classList.toggle('on', !!tx); if (tx){ o.firstChild.textContent = tx[0]; o.lastChild.textContent = tx[1]; } } if (S.phase==='reveal' || cam.mode !== 'auto') cam.t = 0; setText($('shot'), (cam.mode==='auto' ? 'Auto camera · ' : 'Camera · ')+(SHOT_NAME[shot] || '')); const c = $('cut'); c.classList.remove('go'); void c.offsetWidth; c.classList.add('go'); }
   frameShot(shot, cam.t, Math.min(shotLen(), 1e4), dt);
-  const follow = shot==='chase' || shot==='side' || shot==='runner' || shot==='orbitHero', k = cut ? 1 : follow ? 1-Math.exp(-3.2*dt) : 1;
+  const follow = shot==='chase' || shot==='side' || shot==='runner' || shot==='orbitHero' || shot==='duel', k = cut ? 1 : follow ? 1-Math.exp(-3.2*dt) : 1;
   cam.soft.lerp(cam.P, k); cam.softG.lerp(cam.G, cut ? 1 : follow ? 1-Math.exp(-6*dt) : 1);
   camera.position.copy(cam.soft);
   if (cam.shake > .01){ camera.position.x += rnd(-1,1)*cam.shake; camera.position.y += rnd(-1,1)*cam.shake*.6; cam.shake *= Math.exp(-6*dt); }
@@ -1424,6 +1538,48 @@ setInterval(() => { const box = $('calls'); for (const e of [...box.children]) i
   if (callQ.length > 8){ const n = callQ.length; callQ.length = 0; callQ.push([n+' more teams', 'delivered']); }
   const [name, extra] = callQ.shift(), c = el('div', 'call'); c._at = Date.now(); c.append(el('b', '', '✓'), el('span', '', name)); if (extra) c.append(el('em', '', extra)); box.append(c); }, 260);
 
+/* buzzer beaters (a delivery in the last 3 seconds) and photo finishes (two deliveries within a second of each other).
+   The times come from the server (res.at and endsAt), so they are exact, not when this screen happened to hear about them. */
+const bbQ = [], race = { key:'', last:null, n:0 }; let bbBusy = false, pfLast = 0;
+function buzzerBeater(name){
+  S.bbAt = Date.now();
+  if (bbQ.length >= 4){ callout(name, 'BUZZER BEATER'); return; }
+  bbQ.push(name);
+  if (bbBusy) return;
+  bbBusy = true;
+  (function next(){
+    const n = bbQ.shift();
+    if (n == null){ bbBusy = false; return; }
+    const e = $('bb'); e.querySelector('b').textContent = n;
+    e.querySelector('span').textContent = bbQ.length ? '+'+bbQ.length+' more at the buzzer' : 'Delivered at the buzzer';
+    e.classList.remove('show'); void e.offsetWidth; e.classList.add('show');
+    SFX.slash(); SFX.taiko(0, .9, 88); cam.shake = Math.max(cam.shake, .35); cam.punch = 1;
+    feed('⏱ Buzzer beater: '+n, 'rush');
+    setTimeout(next, 1400);
+  })();
+}
+function photoFinish(a, b, gap){
+  const e = $('pf'), bs = e.querySelectorAll('.pfr b');
+  bs[0].textContent = a; bs[1].textContent = b;
+  e.querySelector('.pfg').textContent = gap < .05 ? 'DEAD HEAT' : gap.toFixed(2)+' s apart';
+  e.classList.remove('show'); void e.offsetWidth; e.classList.add('show');
+  const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  hiss(.06, .5, 0, 5200, 0, 1.4); hiss(.05, .35, .08, 3000, 0, 1.4);
+  feed(`📸 Photo finish: ${a} and ${b}`, 'hot');
+}
+function judgeFinish(list, v){
+  const key = v.round ? v.round.id+':'+v.ri : '';
+  if (race.key !== key){ race.key = key; race.last = null; race.n = 0; }
+  const ends = v.endsAt > 0 ? v.endsAt : (S.lastEnds || 0);
+  list.filter(t => t.res && +t.res.at > 0).sort((a,b) => a.res.at-b.res.at).forEach(t => {
+    const at = +t.res.at; race.n++;
+    if (ends && !(v.pausedLeft > 0) && ends-at >= 0 && ends-at <= 3000) buzzerBeater(t.name);
+    const L = race.last;
+    // the race for first is always shown; after that at most one photo finish every 9 seconds, so a full room stays readable
+    if (L && Math.abs(at-L.at) <= 1000 && (race.n <= 2 || Date.now()-pfLast > 9000)){ pfLast = Date.now(); photoFinish(L.name, t.name, Math.abs(at-L.at)/1000); }
+    race.last = { name:t.name, at };
+  });
+}
 function timeLeft(v){ if (!v || v.timer===false) return null; if (v.pausedLeft > 0) return v.pausedLeft; if (!v.endsAt) return null; return Math.max(0, v.endsAt-(Date.now()+S.skew)); }
 const WORD = { offline:'STANDBY', lobby:'LOBBY OPEN', layout:'STOCKING', locked:'LOCKED', order:'GO', reveal:'REPLAY', final:'FINAL' };
 let lastSec = -1;
@@ -1439,7 +1595,7 @@ function updateClock(){
 function renderTop(v){
   const R = v.round, rounds = v.rounds || [], ph = v.phase;
   const chip = ph==='lobby' ? 'Lobby' : ph==='layout' ? 'Round 1 · Stock the store' : ph==='locked' ? 'Layouts locked' : ph==='final' ? 'Final results' :
-    R ? (R.stage===3 ? 'Round 3 · Disruptions' : 'Round 2 · Rush hour') : ph;
+    R ? (R.showdown ? 'Showdown · Top four' : R.stage===3 ? 'Round 3 · Disruptions' : 'Round 2 · Rush hour') : ph;
   setText($('phaseChip'), chip+(v.demo ? ' · Practice' : ''));
   setText($('roundTag'), (ph==='order' || ph==='reveal') && R ? `${R.label} · ${R.title}  (${(v.ri|0)+1} of ${rounds.length})` : '');
   const sig = JSON.stringify([rounds.length, v.done, v.ri, ph]);
@@ -1469,7 +1625,7 @@ function renderBoard(v){
     note = ph==='order' ? (S.liveScores ? 'live scores' : '✓ = delivered') : ph==='reveal' ? 'after '+((v.round||{}).label||'this order') : '';
     const st = standings(v);
     rows = st.map((b,i) => { const masked = ph==='final' && !rankShown(i+1, st.length);
-      return masked ? { key:'?'+i, masked:true, name:'? ? ?', pts:'', sub:'secret' } : { key:b.name, name:b.name, pts:b.pts, sub:b.meters+' m', done:ph==='order' && b.done }; }); }
+      return masked ? { key:'?'+i, masked:true, name:'? ? ?', pts:'', sub:'secret' } : { key:b.name, name:b.name, pts:b.pts, sub:b.meters+' m', done:ph==='order' && b.done, hunted:ph==='order' && !!v.hunt && v.hunt.target===b.name }; }); }
   if (kindNow !== boardKind){ boardKind = kindNow; ol.textContent = ''; rowEls.clear(); prevRank = new Map(); }
   setText($('boardTitle'), title); setText($('boardNote'), note);
   const max = kindNow==='plain' ? 12 : 10, top = rows.slice(0, max);
@@ -1486,12 +1642,12 @@ function renderBoard(v){
       rowEls.set(r.key, e); }
     else e.classList.remove('enter','up','down');
     const q = c => e.querySelector('.'+c);
-    setText(q('nm'), r.name);
+    setText(q('nm'), (r.hunted ? '🎯 ' : '')+r.name);
     if (kindNow !== 'plain') setText(q('rk'), i+1);
     if (kindNow==='bar'){ q('barw').firstChild.style.width = clamp(r.bar,0,1)*100+'%'; e.classList.toggle('full', r.bar >= 1); }
     if (kindNow==='score'){ const pt = q('pt'), s = String(r.pts);
       if (pt._t !== undefined && pt._t !== s && !r.masked && pt._t !== ''){ e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
-      setText(pt, s); setText(q('mt'), r.sub); e.classList.toggle('masked', !!r.masked); e.classList.toggle('done', !!r.done);
+      setText(pt, s); setText(q('mt'), r.sub); e.classList.toggle('masked', !!r.masked); e.classList.toggle('done', !!r.done); e.classList.toggle('hunted', !!r.hunted);
       const was = prevRank.get(r.key); if (!r.masked && was !== undefined && was !== i) e.classList.add(i < was ? 'up' : 'down'); }
     e.dataset.rank = i+1; ol.appendChild(e);
   });
@@ -1503,7 +1659,7 @@ function renderBoard(v){
   setText($('boardMore'), rows.length > top.length ? `+ ${rows.length-top.length} more teams` : rows.length ? '' : 'Waiting for teams');
   const st = v.stats || {}, nT = st.teams ?? teams.length, timed = ph==='order' || ph==='reveal';
   setText($('sTeams'), nT); setText($('sPhones'), st.devices ?? 0);
-  setText($('sDel'), timed ? (st.submitted||0)+'/'+nT : '–');
+  setText($('sDel'), timed ? (st.submitted||0)+'/'+(v.duel && v.duel.teams ? v.duel.teams.length : nT) : '–');
   const showPerf = ph==='reveal' || (ph==='order' && S.liveScores);
   setText($('sPerf'), showPerf ? (st.perfect||0) : ph==='layout' || ph==='locked' ? teams.filter(t => t.placed >= 24).length : '–');
   setText($('sPerfLbl'), ph==='layout' || ph==='locked' ? 'Stocked' : 'Perfect');
@@ -1545,6 +1701,15 @@ function renderCard(v){
       mk(c, 'div', 'sub', '', 'next'); });
     put('full', teams.filter(t => t.placed >= 24).length); put('pen', teams.filter(t => t.pen > 0).length);
     const nx = (v.rounds||[]).find(r => !(v.done||[]).includes(r.id)); put('next', nx ? 'Up next: '+nx.label : '');
+  } else if (ph==='order' && R && R.showdown && v.duel){
+    const ts = v.duel.teams || [];
+    buildCard('duel|'+R.id+'|'+ts.map(t => t.id).join(','), '⚔️ Top-'+ts.length+' showdown', 'rush', c => {
+      bill(c, R.title, R.items||[], R);
+      ts.forEach((t,i) => { const l = mk(c, 'div', 'lane', null, 'ln'+i); l.style.setProperty('--c', DUEL_CSS[i%4]); mk(l, 'i'); mk(l, 'span', '', t.name); mk(l, 'em', '', '…', 'le'+i); });
+      mk(c, 'div', 'sub', v.rules && v.rules.showdown==='add' ? 'Their points add to their totals.' : 'Their result decides the title.').style.marginTop = '1.4vh'; });
+    ts.forEach((t,i) => { const rt = t.route || [], e = K['le'+i];
+      if (e) setText(e, t.done ? '✓ '+t.meters+' m · '+t.pts+' pts' : Math.max(0, rt.length-1)+' m · '+pickedN(t.layout, R, rt)+'/'+(R.items||[]).length);
+      if (K['ln'+i]) K['ln'+i].classList.toggle('done', !!t.done); });
   } else if (ph==='order' && R){
     buildCard('order|'+R.id, `${R.label} of ${(v.rounds||[]).length}`, R.stage===3 ? 'rush' : '', c => {
       if (R.double){ bill(c, 'Order A', R.a||[], R); bill(c, 'Order B', R.b||[], null); } else bill(c, R.title, R.items||[], R);
@@ -1579,33 +1744,45 @@ function onPhase(ph, was, v){
   if (ph==='lobby') showTitle('Join the Blitz', 'Scan the code and pick a team name');
   else if (ph==='layout') showTitle('Round 1', 'Stock your dark store');
   else if (ph==='locked') showTitle('Layouts locked', 'No more moving products');
-  else if (ph==='reveal'){ const sp = v.spotlight; if (sp){ const m = $('mvp'); m.children[1].textContent = sp.name; m.children[2].textContent = `${sp.meters} m walked  ·  ${sp.total} points`; m.classList.remove('show'); void m.offsetWidth; m.classList.add('show'); SFX.gong(); } else showTitle("Time's up", 'Nobody delivered this order'); }
+  else if (ph==='reveal'){ const sp = v.spotlight, wait = bbBusy ? Math.min(6000, 1500*(bbQ.length+1)) : 0;
+    if (v.hunt && v.hunt.n) feed(`🎯 ${v.hunt.n} ${v.hunt.n===1 ? 'team' : 'teams'} beat the leader ${v.hunt.target}: +${v.hunt.pts}`, 'rush');
+    else if (v.hunt) feed(`🎯 Nobody beat the leader ${v.hunt.target}`, 'hot');
+    setTimeout(() => { if (S.phase !== 'reveal') return;
+      if (sp){ const m = $('mvp'); m.children[1].textContent = sp.name; m.children[2].textContent = `${sp.meters} m walked  ·  ${sp.total} points`; m.classList.remove('show'); void m.offsetWidth; m.classList.add('show'); SFX.gong(); }
+      else showTitle("Time's up", 'Nobody delivered this order'); }, wait); }
   else if (ph==='final'){ showTitle('Final results', 'The podium is next'); SFX.roll(); }
   if (was !== 'offline' && ph !== 'order') feed('▶ '+({ lobby:'Lobby open', layout:'Round 1: stock the store', locked:'Layouts locked', reveal:'Order closed', final:'Final results' }[ph] || ph), 'hot');
 }
 function onRound(v){
   const R = v.round; if (!R) return; stinger(); SFX.go(); if (R.crisis) SFX.alarm();
+  if (R.showdown){ const names = ((v.duel && v.duel.teams) || []).map(t => t.name);
+    showTitle('Showdown', names.join('  ·  ') || 'Top four', 'rush'); strumBiwa(); SFX.gong();
+    feed('⚔️ SHOWDOWN: '+(names.join(', ') || 'the top four')+' race live', 'hot'); return; }
   showTitle(R.label, R.title, R.stage===3 ? 'rush' : ''); strumBiwa();
   feed(`▶ ${R.label}: ${R.title}`, 'hot');
   if (R.blocked && R.blocked.length) feed('⚠ Pallets down on '+R.blocked.join(', '), 'rush');
   if (R.oneWay) feed('⚠ Oil spill: aisle 6 is one-way, B6 down to I6', 'rush');
   if (R.double) feed('⚠ Double drop: two orders at once', 'rush');
   if (R.mult > 1) feed(`🔥 This order is worth ×${R.mult} points`, 'rush');
+  if (v.hunt) feed(`🎯 Bounty on ${v.hunt.target}: beat their score on this order for +${v.hunt.pts}`, 'rush');
 }
-function diffEvents(first, v){
-  const ph = v.phase, R = v.round, secs = R && R.secs, left = timeLeft(v);
+function diffEvents(first, v, was){
+  const ph = v.phase, R = v.round, secs = R && R.secs, left = timeLeft(v), fresh = [];
+  // deliveries that land in the same push as the buzzer arrive with the reveal: they still count (they are the buzzer beaters)
+  const live = ph==='order' || (ph==='reveal' && was==='order');
   let landed = 0;
   for (const t of v.teams || []){
     const p = seen.get(t.id) || {}, has = !!t.res;
     if (!seen.has(t.id) && !first){ feed(`${t.name} joined`); SFX.pop(); }
     if (!first && ph==='layout' && t.placed >= 24 && p.placed < 24) feed(`📦 ${t.name} is fully stocked`);
-    if (!first && has && !p.has && ph==='order'){ landed++;
+    if (!first && has && !p.has && live){ landed++; fresh.push(t);
       const at = secs && left != null ? Math.max(1, Math.round(secs-left/1000))+' s' : '';
       callout(t.name, S.liveScores ? `${t.res.meters} m · +${t.res.score+t.res.bonus+t.res.perfect}` : at);
       if (landed <= 3) feed(`✓ ${t.name} delivered`); }
     seen.set(t.id, { has, placed:t.placed });
   }
   if (landed){ SFX.ding(landed); cam.punch = Math.max(cam.punch, .45); pulse(X(3), Z(0), RUSH); sparkPuff(X(3), 1.4, Z(0), RUSH, 16+landed*4); if (landed > 3) feed(`✓ ${landed-3} more deliveries`); }
+  if (fresh.length) judgeFinish(fresh, v);
   const lead = (v.board||[])[0];
   if (first){ feed('Live feed connected', 'hot'); lastLead = lead && lead.name; }
   else if (ph==='reveal' && lead && lead.pts > 0 && lead.name !== lastLead){ feed(`👑 ${lead.name} takes the lead`, 'hot'); lastLead = lead.name; }
@@ -1623,6 +1800,8 @@ function syncScene(v){
   const nT = teams.length, out = nT-teams.filter(t => t.res).length;
   crowd.mode = ph==='lobby' ? 'muster' : ph==='layout' || ph==='order' ? 'roam' : 'off';
   crowd.n = ph==='lobby' ? Math.min(nT, POOL) : ph==='layout' ? Math.min(nT, 8) : ph==='order' ? Math.min(out, 10) : 0;
+  if (ph==='order' && R && R.showdown) crowd.n = 0;                           // the showdown floor belongs to the four finalists
+  syncDuel(v);
 }
 function applyView(v){
   if (!v || typeof v !== 'object' || typeof v.phase !== 'string') return;
@@ -1630,7 +1809,8 @@ function applyView(v){
   if (typeof v.now === 'number') S.skew = v.now-Date.now();
   S.rule = (v.phase==='order' || v.phase==='reveal') ? v.round : null;
   S.podium = v.phase==='final' ? (v.podium|0) : 0;
-  diffEvents(first, v);
+  if (v.phase==='order' && v.endsAt > 0) S.lastEnds = v.endsAt;
+  diffEvents(first, v, was);
   if (v.phase !== was) onPhase(v.phase, was, v);
   const rk = v.phase==='order' ? 'o'+v.ri : ''; if (rk && rk !== roundKey) onRound(v); roundKey = rk;
   renderCard(v); syncScene(v); renderTop(v); renderBoard(v);
@@ -1684,7 +1864,10 @@ function startDemo(){
     { id:'c1', stage:3, label:'Oil spill', title:'Monthly Grocery', items:[9,7,14,5], oneWay:true, secs:20, crisis:'Oil spill! Aisle 6 is one-way: enter at B6, walk down to I6. Nobody walks back up it.' },
     { id:'c2', stage:3, label:'Pallet crash', title:'Party Rush', items:[4,8,1,12,15], blocked:['B4','B5','B7','B8'], secs:20, crisis:'More pallets down! B4, B5, B7 and B8 are all blocked.' },
     { id:'c3', stage:3, label:'Double drop', title:'Two orders at once', double:true, a:[1,9,7,12], b:[2,4,8,6], secs:20, crisis:'Two orders dropped together. Two separate trips, or one trip with a heavy cart (meters x 1.25)?' },
-    { id:'fin', stage:3, label:'Final boss', title:'Festival Rush', items:[1,2,6,9,15,13], oneWay:true, blocked:['B4','B5'], mult:2, secs:20, crisis:'Everything at once: oil spill in aisle 6 AND pallets on B4 and B5. This order is worth DOUBLE points.' }];
+    { id:'fin', stage:3, label:'Final boss', title:'Festival Rush', items:[1,2,6,9,15,13], oneWay:true, blocked:['B4','B5'], mult:2, secs:20, crisis:'Everything at once: oil spill in aisle 6 AND pallets on B4 and B5. This order is worth DOUBLE points.' },
+    { id:'duel', stage:3, label:'Showdown', title:'Top-four final', items:[2,5,11,18,23], secs:20, showdown:true, crisis:'SHOWDOWN! Only the top four teams play this order. Every step is drawn live on the big screen.' }];
+  const DUEL_R = rounds[rounds.length-1], DUEL_AT = [8, 11.3, 11.8, 17.5];       // finalist 2 and 3 make a photo finish, finalist 4 beats the buzzer
+  const RULES_V = { bounty:15, bountyCounts:true, showdown:'title', duelSize:4, orders:rounds.length-1 };
   const script = [['lobby',14],['layout',18],['locked',6]]; rounds.forEach((r,i) => script.push(['order',r.secs,i], ['reveal',i===4 ? 30 : 24,i])); script.push(['final',44]);
   const COLD = [15,17,24], CHEMS = [13,16,22], HEAVY = [9], FRAG = [3,6,8,20];
   const mkLayout = () => { const L = {}, lv = p => HEAVY.includes(p) ? 'B' : FRAG.includes(p) ? pick(['M','T']) : pick(['B','M','T']);
@@ -1695,20 +1878,41 @@ function startDemo(){
     while (left.length){ let best = null; for (const p of left){ const w = whereIs(L,p); for (const s of (w ? spots(w,R) : [])){ const path = bfs(cur, s, R); if (path && (!best || path.length < best.path.length)) best = { p, path }; } }
       if (!best) return null; out.push(...best.path.slice(1)); cur = best.path[best.path.length-1]; left.splice(left.indexOf(best.p), 1); }
     const back = bfs(cur, START, R); if (!back) return null; out.push(...back.slice(1)); return out.length > 2 ? out : null; };
-  let teams = [], si = -1, ends = 0, shown = 0, done = [], podium = 0, hold = Q.has('hold');
+  let teams = [], si = -1, ends = 0, shown = 0, done = [], podium = 0, hold = Q.has('hold'), duelIds = null;
+  const hunts = {};
   const totalOf = r => r.score+r.bonus+r.perfect;
+  const tot = t => { let p = -t.pen, m = 0; for (const k in t.all){ p += totalOf(t.all[k])+(t.bty[k]||0); m += t.all[k].meters; } return { pts:p, meters:m }; };
+  const ranked = list => {
+    const b = list.map(t => ({ t, ...tot(t) })).sort((x,y) => y.pts-x.pts || x.meters-y.meters);
+    if (!duelIds || !done.includes(DUEL_R.id)) return b;
+    const dp = x => x.t.all[DUEL_R.id] ? totalOf(x.t.all[DUEL_R.id]) : -1;
+    return b.filter(x => duelIds.includes(x.t.id)).sort((x,y) => dp(y)-dp(x) || y.pts-x.pts).concat(b.filter(x => !duelIds.includes(x.t.id)));
+  };
+  const award = R => { const L = hunts[R.id] && teams.find(t => t.id === hunts[R.id]); if (!L) return;
+    const lp = L.all[R.id] ? totalOf(L.all[R.id]) : 0;
+    teams.forEach(t => { if (t !== L && t.all[R.id] && totalOf(t.all[R.id]) > lp) t.bty[R.id] = 15; }); };
   const submit = (t, R, early) => { let res = null;
-    if (!R.double){ const rt = routeFor(t.layout, R.items, R); if (rt){ const m = rt.length-1; res = { meters:m, score:Math.max(0,150-2*m)*(R.mult||1), mode:null, route:rt, route2:null }; } }
+    if (!R.double){ const rt = (R.showdown && t.plan) || routeFor(t.layout, R.items, R); if (rt){ const m = rt.length-1; res = { meters:m, score:Math.max(0,150-2*m)*(R.mult||1), mode:null, route:rt, route2:null }; } }
     else if (t.n % 2){ const rt = routeFor(t.layout, [...R.a, ...R.b], R); if (rt){ const m = Math.ceil(1.25*(rt.length-1)); res = { meters:m, score:Math.max(0,300-2*m), mode:'B', route:rt, route2:null }; } }
     else { const a = routeFor(t.layout, R.a, R), b = routeFor(t.layout, R.b, R); if (a && b) res = { meters:a.length+b.length-2, score:Math.max(0,150-2*(a.length-1))+Math.max(0,150-2*(b.length-1)), mode:'A', route:a, route2:b }; }
-    if (!res) return; res.bonus = early ? 10 : 0; res.perfect = t.n % 4 === 0 ? 20 : 0; res.full = true; res.fast = false; t.cur = res; t.all[R.id] = res; };
+    if (!res) return; res.bonus = early ? 10 : 0; res.perfect = t.n % 4 === 0 ? 20 : 0; res.full = true; res.fast = false; res.at = Date.now(); t.cur = res; t.all[R.id] = res; };
   const enter = n => { si = (n+script.length) % script.length; const [ph,dur,ri] = script[si]; ends = Date.now()+dur*1000;
-    if (ph==='lobby'){ teams = NAMES.map((name,n) => ({ id:'t'+n, n, name, layout:mkLayout(), placed:0, devices:1+n%3, pen:n===5 ? 50 : n===9 ? 30 : 0, all:{}, cur:null })); shown = 0; done = []; podium = 0; }
+    if (ph==='lobby'){ teams = NAMES.map((name,n) => ({ id:'t'+n, n, name, layout:mkLayout(), placed:0, devices:1+n%3, pen:n===5 ? 50 : n===9 ? 30 : 0, all:{}, bty:{}, cur:null, plan:null }));
+      shown = 0; done = []; podium = 0; duelIds = null; for (const k of Object.keys(hunts)) delete hunts[k]; }
     if (ph !== 'lobby') shown = teams.length;
     if (ph==='locked' || ph==='order' || ph==='reveal' || ph==='final') teams.forEach(t => { t.placed = 24; });
-    if (ph==='order'){ teams.forEach(t => { t.cur = null; delete t.all[rounds[ri].id]; }); done = rounds.slice(0,ri).map(r => r.id); }
-    if (ph==='reveal'){ teams.forEach(t => { if (!t.cur && !t.all[rounds[ri].id] && t.n !== 11) submit(t, rounds[ri], false); t.cur = t.all[rounds[ri].id] || null; }); done = rounds.slice(0,ri+1).map(r => r.id); }
-    if (ph==='final'){ rounds.forEach(R => teams.forEach(t => { if (!t.all[R.id] && t.n !== 11) submit(t, R, false); })); done = rounds.map(r => r.id); podium = 0; } };
+    if (ph==='order'){ const R = rounds[ri]; teams.forEach(t => { t.cur = null; t.plan = null; delete t.all[R.id]; delete t.bty[R.id]; }); done = rounds.slice(0,ri).map(r => r.id);
+      const top = ranked(teams);
+      hunts[R.id] = !R.showdown && ri > 0 && top[0] && top[0].pts > 0 ? top[0].t.id : null;
+      if (R.showdown){ duelIds = top.slice(0,4).map(x => x.t.id); duelIds.forEach(id => { const t = teams.find(x => x.id === id); t.plan = routeFor(t.layout, R.items, R) || [START]; }); } }
+    if (ph==='reveal'){ const R = rounds[ri]; if (R.showdown && !duelIds) duelIds = ranked(teams).slice(0,4).map(x => x.t.id);
+      teams.forEach(t => { if (!t.all[R.id] && t.n !== 11 && (!R.showdown || duelIds.includes(t.id))) submit(t, R, false); t.cur = t.all[R.id] || null; });
+      done = rounds.slice(0,ri+1).map(r => r.id); award(R); }
+    if (ph==='final'){ done = [];
+      rounds.forEach(R => { if (R.showdown && !duelIds) duelIds = ranked(teams).slice(0,4).map(x => x.t.id);
+        teams.forEach(t => { if (!t.all[R.id] && t.n !== 11 && (!R.showdown || duelIds.includes(t.id))) submit(t, R, false); });
+        done.push(R.id); award(R); });
+      podium = 0; } };
   demo.next = d => { enter(si+d); step(); };
   const step = () => {
     if (!hold && Date.now() >= ends) enter(si+1);
@@ -1716,17 +1920,25 @@ function startDemo(){
     if (ph==='lobby') shown = Math.min(teams.length, Math.max(shown, Math.floor(el2*1.3)+(hold ? 14 : 0)));
     const vis = teams.slice(0, shown);
     if (ph==='layout') vis.forEach(t => { t.placed = Math.min(24, hold ? 14+t.n%10 : Math.floor(el2*(1.2+t.n%5*.25))); });
-    if (ph==='order') vis.forEach(t => { if (!t.cur && t.n !== 11 && (hold ? t.n < 6 : el2 > 3+((t.n*7)%13))) submit(t, R, el2 < 9); });
+    if (ph==='order' && R.showdown) duelIds.forEach((id,k) => { const t = teams.find(x => x.id === id); if (t && !t.cur && (hold ? k < 2 : el2 > DUEL_AT[k])) submit(t, R, k === 0); });
+    else if (ph==='order') vis.forEach(t => { if (!t.cur && t.n !== 11 && (hold ? t.n < 6 : el2 > (t.n === 13 ? 17.5 : 3+((t.n*7)%13)*1.15))) submit(t, R, el2 < 9); });   // Speedy Hawks beat the buzzer
     if (ph==='final') podium = hold ? 3 : el2 > 22 ? 3 : el2 > 14 ? 2 : el2 > 7 ? 1 : 0;
-    const tot = t => { let p = -t.pen, m = 0; for (const k in t.all){ p += totalOf(t.all[k]); m += t.all[k].meters; } return { pts:p, meters:m }; };
-    const board = vis.map(t => ({ name:t.name, pen:ph==='lobby' || ph==='layout' ? 0 : t.pen, ...tot(t) })).sort((a,b) => b.pts-a.pts || a.meters-b.meters);
+    const board = ranked(vis).map(x => ({ name:x.t.name, pen:ph==='lobby' || ph==='layout' ? 0 : x.t.pen, pts:x.pts, meters:x.meters }));
     const withRes = vis.filter(t => R && t.all[R.id]); let spot = null;
     if (ph==='reveal' && withRes.length){ const b = withRes.slice().sort((a,c) => totalOf(c.all[R.id])-totalOf(a.all[R.id]) || a.all[R.id].meters-c.all[R.id].meters)[0], r = b.all[R.id];
       spot = { name:b.name, layout:b.layout, mode:r.mode, route:r.route, route2:r.route2, meters:r.meters, total:totalOf(r) }; }
+    const lead = R && hunts[R.id] ? teams.find(t => t.id === hunts[R.id]) : null;
+    const claimed = lead && ph==='reveal' ? vis.filter(t => t.bty[R.id]).map(t => t.name) : [];
+    const duelV = R && R.showdown && duelIds ? { mode:'title', teams:duelIds.map((id,k) => { const t = teams.find(x => x.id === id), r = t.all[R.id];
+      let route = r ? r.route : null;
+      if (!r && t.plan){ const f = clamp(el2/(hold ? 30 : DUEL_AT[k]), 0, 1); route = t.plan.slice(0, Math.max(1, Math.ceil(f*t.plan.length))); }
+      return { id:t.id, name:t.name, layout:t.layout, done:!!r, route, meters:r ? r.meters : null, pts:r ? totalOf(r) : null }; }) } : null;
     applyView({ ok:true, now:Date.now(), phase:ph, endsAt:ph==='layout' || ph==='order' ? ends : 0, pausedLeft:0, timer:true, demo:false, joinOpen:true, msg:null, ri:R ? ri : -1, done, podium:ph==='final' ? podium : 0,
-      rounds:rounds.map(r => ({ id:r.id, label:r.label, title:r.title, stage:r.stage })), round:R,
-      teams:vis.map(t => { const r = R && t.all[R.id]; return { id:t.id, name:t.name, placed:t.placed, devices:t.devices, pen:t.pen, ...tot(t), res:r ? { meters:r.meters, score:r.score, bonus:r.bonus, perfect:r.perfect, mode:r.mode, full:true, fast:false } : null }; }),
-      board, stats:{ teams:vis.length, devices:vis.reduce((s,t) => s+t.devices, 0), submitted:withRes.length, perfect:withRes.filter(t => t.all[R.id].perfect).length }, spotlight:spot });
+      rounds:rounds.map(r => ({ id:r.id, label:r.label, title:r.title, stage:r.stage, showdown:!!r.showdown })), round:R,
+      teams:vis.map(t => { const r = R && t.all[R.id]; return { id:t.id, name:t.name, placed:t.placed, devices:t.devices, pen:t.pen, ...tot(t),
+        res:r ? { meters:r.meters, score:r.score, bonus:r.bonus, perfect:r.perfect, mode:r.mode, full:true, fast:false, at:r.at } : null }; }),
+      board, stats:{ teams:vis.length, devices:vis.reduce((s,t) => s+t.devices, 0), submitted:withRes.length, perfect:withRes.filter(t => t.all[R.id].perfect).length }, spotlight:spot,
+      rules:RULES_V, hunt:lead ? { target:lead.name, pts:15, counts:true, claimed:claimed.slice(0,40), n:claimed.length } : null, duel:duelV });
   };
   const at = +Q.get('at') || 0; for (let i=0; i<=at; i++) enter(i);
   step(); demo.timer = setInterval(step, 500);
@@ -1760,10 +1972,10 @@ function renderPip(){
   if (pipEl._on !== on){ pipEl._on = on; pipEl.classList.toggle('hide', !on); }
   if (!on) return;
   const mapMain = cam.shot==='top', r = pipEl.getBoundingClientRect(), b = 3;
-  if (mapMain){ const a = replay.on ? hero : (cam.sub && cam.sub.state==='roam' ? cam.sub : crowd.list.find(x => x.state==='roam' && x.vis > .5));
+  if (mapMain){ const a = replay.on ? hero : duel.on ? ((duel.lanes.find(L => L.id && !L.done) || duel.lanes.find(L => L.id) || {}).actor || null) : (cam.sub && cam.sub.state==='roam' ? cam.sub : crowd.list.find(x => x.state==='roam' && x.vis > .5));
     if (a){ cam2.position.set(a.pos.x-Math.sin(a.ang)*6, 4.4, Math.max(-17, a.pos.z-Math.cos(a.ang)*6)); cam2.lookAt(a.pos.x, 1.5, a.pos.z); } else { cam2.position.set(X(3)+11, 3, Z(1)+1.3); cam2.lookAt(X(3), 1.5, Z(0)); } }
   else { cam2.position.set(0, 72, 7); cam2.lookAt(0, 0, -.5); }
-  setText($('pipLbl'), mapMain ? (replay.on ? 'HERO CAM' : 'RUNNER CAM') : 'MAP');
+  setText($('pipLbl'), mapMain ? (replay.on ? 'HERO CAM' : duel.on ? 'SHOWDOWN CAM' : 'RUNNER CAM') : 'MAP');
   cam2.aspect = (r.width-b*2)/(r.height-b*2); cam2.updateProjectionMatrix();
   const wasCeil = ceil.visible; ceil.visible = cam2.position.y < 9.5;
   renderer.setRenderTarget(null); renderer.setScissorTest(true);
@@ -1777,7 +1989,7 @@ function sim(dt){
   for (let i=0;i<DUST;i++){ const o = i*3; dustPos[o+1] -= dustSpd[i]*dt*2.2; dustPos[o] += Math.sin(S.T*.6+i)*.006; if (dustPos[o+1] < 0) dustPos[o+1] = 11; }
   dustGeo.attributes.position.needsUpdate = true;
   updateCastle(dt, T); hubRing.scale.setScalar(1+.1*Math.sin(T*3)); hubRing.rotation.y = T*.5; hubLight.intensity = 80+40*Math.sin(T*3);
-  updateStock(dt); updateCrates(dt, T); updateCrowd(dt, T); updateReplay(dt); updateHazards(dt, T); updatePodium(dt, T); updateFx(dt);
+  updateStock(dt); updateCrates(dt, T); updateCrowd(dt, T); updateReplay(dt); updateDuel(dt, T); updateHazards(dt, T); updatePodium(dt, T); updateFx(dt);
   updateCamera(dt); updateLabels(); updateClock(); tickHud(T);
 }
 window.__sim = (n=60) => { for (let i=0;i<n;i++) sim(.05); }; window.__dbg = { S, pod, sinkers, cam, replay, crowd, camera };                  // for checking by hand: jump ahead n frames

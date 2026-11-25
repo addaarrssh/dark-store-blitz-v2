@@ -7,12 +7,16 @@
 //   3. rounds.secret.js   next to server.js (never uploaded: it is in .gitignore)
 //   4. rounds.js    the public practice set
 // To make the value for Render from rounds.secret.js:   node tools/secret-orders.js
+//
+// The top-four showdown: one order may carry  showdown: true  (a single order, not a double drop). A set without one
+// gets a showdown order added at the end by withShowdown() (server.js calls it).
 'use strict';
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const Game = require('./game.js');
 
 const WALK = id => Game.validCell(id) && Game.kindOf(id) === 'walk';
 const isInt = Number.isInteger;
+const KEYS = ['id', 'stage', 'label', 'title', 'items', 'a', 'b', 'secs', 'oneWay', 'blocked', 'double', 'mult', 'crisis', 'showdown'];
 
 // Returns a problem in words, or '' when the set is fine. The server refuses to start with a broken secret set:
 // better to find out at start-up than in the middle of an order.
@@ -23,6 +27,7 @@ function check(d) {
   for (const p of Game.PRODUCTS) if (!(isInt(d.SOLD[p.n]) && d.SOLD[p.n] > 0)) return 'SOLD has no figure for product ' + p.n;
   if (!Array.isArray(d.ROUNDS) || d.ROUNDS.length < 1 || d.ROUNDS.length > 40) return 'ROUNDS must be a list of 1 to 40 orders';
   const ids = new Set(), labels = new Set();
+  let duels = 0;
   for (const R of d.ROUNDS) {
     if (!R || typeof R !== 'object') return 'an order is empty';
     const tag = 'order ' + R.id + ': ';
@@ -52,9 +57,12 @@ function check(d) {
     if (R.oneWay !== undefined && R.oneWay !== true) return tag + 'oneWay can only be true';
     if (R.double !== undefined && R.double !== true) return tag + 'double can only be true';
     if (R.mult !== undefined && !(isInt(R.mult) && R.mult >= 1 && R.mult <= 5)) return tag + 'mult must be 1 to 5';
-    for (const k of Object.keys(R)) {
-      if (!['id', 'stage', 'label', 'title', 'items', 'a', 'b', 'secs', 'oneWay', 'blocked', 'double', 'mult', 'crisis'].includes(k)) return tag + 'unknown setting "' + k + '"';
+    if (R.showdown !== undefined && R.showdown !== true) return tag + 'showdown can only be true';
+    if (R.showdown) {
+      if (R.double) return tag + 'the showdown must be one single order (not a double drop)';
+      if (++duels > 1) return tag + 'only one order can be the showdown';
     }
+    for (const k of Object.keys(R)) if (!KEYS.includes(k)) return tag + 'unknown setting "' + k + '"';
     // every order must be deliverable: with every product on a shelf, the solver has to find a route
     const full = {};
     let n = 0;
@@ -73,6 +81,24 @@ function check(d) {
 function plain(d) { return JSON.parse(JSON.stringify({ LAYOUT_MINUTES: Number(d.LAYOUT_MINUTES), SOLD: d.SOLD, ROUNDS: d.ROUNDS })); }
 
 function encode(d) { return Buffer.from(JSON.stringify(plain(d)), 'utf8').toString('base64'); }
+
+// The top-four showdown order. A set that already marks one order with showdown:true keeps it. Otherwise one is added
+// at the end: five products picked from a hash of the set and the seed (server.js passes HOST_PIN), so it is the same
+// after every restart but cannot be guessed from the public code once HOST_PIN is secret.
+function withShowdown(d, seed) {
+  if (!d || !Array.isArray(d.ROUNDS) || d.ROUNDS.some(r => r && r.showdown)) return d;
+  const ids = new Set(d.ROUNDS.map(r => r.id)), labels = new Set(d.ROUNDS.map(r => r.label));
+  let id = 'duel', label = 'Showdown', n = 1;
+  while (ids.has(id)) id = 'duel' + (++n);
+  n = 1;
+  while (labels.has(label)) label = 'Showdown ' + (++n);
+  const h = crypto.createHash('sha256').update(String(seed || '') + '|' + JSON.stringify(d.ROUNDS)).digest();
+  const pool = Game.PRODUCTS.map(p => p.n), items = [];
+  for (let i = 0; items.length < 5 && i < h.length; i++) items.push(pool.splice(h[i] % pool.length, 1)[0]);
+  const R = { id, stage: 3, label, title: 'Top-four final', items, secs: 60, showdown: true,
+    crisis: 'SHOWDOWN! Only the top four teams play this order. Every step is drawn live on the big screen.' };
+  return Object.assign({}, d, { ROUNDS: d.ROUNDS.concat([R]) });
+}
 
 // -> { set: 'secret' | 'practice', from: where it came from, data: {LAYOUT_MINUTES, SOLD, ROUNDS} }
 // Throws (with a message in plain words) when a secret set was given but is broken.
@@ -100,4 +126,4 @@ function load(env, dir) {
   return { set: 'practice', from: 'rounds.js', data: plain(pub) };
 }
 
-module.exports = { check, load, encode };
+module.exports = { check, load, encode, withShowdown };
