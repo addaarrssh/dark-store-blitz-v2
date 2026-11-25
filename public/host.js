@@ -827,9 +827,10 @@
     autoAt = 0; autoBusy = false;
   }
   function runAutoStep() {
+    if (!autoOn || !V || autoBusy) return;
+    if (V.phase !== 'locked' && V.phase !== 'reveal') { stopAuto(); return; }
+    if (!$('dlg').hidden) { autoAt = Date.now() + 1000; autoTimer = setTimeout(runAutoStep, 1000); return; }
     stopAuto();
-    if (!autoOn || !V || autoBusy || !$('dlg').hidden) return;
-    if (V.phase !== 'locked' && V.phase !== 'reveal') return;
     var nx = nextIndex(V);
     autoBusy = true;
     if (nx != null) startRound(nx).then(function () { autoBusy = false; if (V) syncAuto(V); });
@@ -841,11 +842,18 @@
       stopAuto(); return;
     }
     if (v.phase === 'order') { stopAuto(); return; }
-    if ((v.phase === 'locked' || v.phase === 'reveal') && !autoAt && !autoBusy) {
-      var delay = v.phase === 'locked' ? AUTO_LOCK_MS : AUTO_REVEAL_MS;
-      autoAt = Date.now() + delay;
-      autoTick = setInterval(function () { if (V) renderDock(V); }, 500);
-      autoTimer = setTimeout(runAutoStep, delay);
+    if (v.phase === 'locked' || v.phase === 'reveal') {
+      if (autoAt > 0 && Date.now() >= autoAt && !autoBusy) { runAutoStep(); return; }
+      if (!autoAt && !autoBusy) {
+        var delay = v.phase === 'locked' ? AUTO_LOCK_MS : AUTO_REVEAL_MS;
+        autoAt = Date.now() + delay;
+        autoTick = setInterval(function () {
+          if (!V) return;
+          if (autoAt > 0 && Date.now() >= autoAt && !autoBusy) runAutoStep();
+          else renderDock(V);
+        }, 500);
+        autoTimer = setTimeout(runAutoStep, delay);
+      }
     }
   }
 
