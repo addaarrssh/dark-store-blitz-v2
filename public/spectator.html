@@ -863,6 +863,7 @@ function applyQuality(){
   const pr = Math.min(window.devicePixelRatio || 1, QL[ql]);
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
   if (autoQ) bloomOn = ql >= 1;
+  bloom.enabled = bloomOn;
   renderer.shadowMap.enabled = ql > 0; key.castShadow = ql > 0;
   resize();
 }
@@ -2178,7 +2179,7 @@ addEventListener('keydown', e => {
   else if (k==='h') $('help').classList.toggle('hide');
   else if (k==='c') $('conn').classList.toggle('hide');
   else if (k==='d') startDemo();
-  else if (k==='b') bloomOn = !bloomOn;
+  else if (k==='b'){ bloomOn = !bloomOn; bloom.enabled = bloomOn; }
   else if (k==='p'){ fpsOn = !fpsOn; if (!fpsOn) cam.shot = ''; }
   else if (k==='m') setSound(!AU.on);
   else if (k==='q'){ autoQ = false; ql = (ql+QL.length-1) % QL.length; applyQuality(); }
@@ -2219,7 +2220,7 @@ function frame(){
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), .05); sim(dt);
   if ((frameN++ & 3) === 0 && renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = true;                 // shadows every 4th frame: 75% less cost, smooth motion
-  if (bloomOn) composer.render(); else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
+  composer.render();
   renderPip();
   /* frame-rate watch on the real clock. A hidden tab or a one-off stall is ignored; quality steps down only after two slow
      readings in a row, and climbs back up when the rate has been solid for ten seconds. */
